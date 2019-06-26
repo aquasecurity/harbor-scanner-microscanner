@@ -1,0 +1,45 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: aquasec
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: microscanner-proxy
+  namespace: aquasec
+spec:
+  template:
+    metadata:
+      labels:
+        app: microscanner-proxy
+    spec:
+      containers:
+        - name: main
+          image: aquasec/microscanner-proxy:latest
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: "MICRO_SCANNER_ADDR"
+              value: ":8080"
+            - name: "MICRO_SCANNER_DATA_FILE"
+              value: "/app/data/dummy-scanner.json"
+            - name: "MICRO_SCANNER_TOKEN"
+              # FIXME Use secret
+              value: "YWIxNDU2NTFiNDJm"
+          ports:
+            - containerPort: 8080
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: microscanner-proxy
+  namespace: aquasec
+spec:
+  selector:
+    app: microscanner-proxy
+  type: LoadBalancer
+  ports:
+    - protocol: TCP
+      port: 8080
+      targetPort: 8080
