@@ -1,9 +1,12 @@
 package image
 
-import "github.com/aquasecurity/microscanner-proxy/pkg/model"
+import (
+	"github.com/aquasecurity/microscanner-proxy/pkg/model/harbor"
+	"github.com/aquasecurity/microscanner-proxy/pkg/model/microscanner"
+)
 
 // Scanner defines methods for scanning container images.
 type Scanner interface {
-	Scan(req model.ScanRequest) error
-	GetResult(digest string) (*model.ScanResult, error)
+	Scan(req harbor.ScanRequest) error
+	GetResult(digest string) (*microscanner.ScanResult, error)
 }

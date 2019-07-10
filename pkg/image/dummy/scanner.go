@@ -4,7 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/aquasecurity/microscanner-proxy/pkg/image"
-	"github.com/aquasecurity/microscanner-proxy/pkg/model"
+	"github.com/aquasecurity/microscanner-proxy/pkg/model/harbor"
+	"github.com/aquasecurity/microscanner-proxy/pkg/model/microscanner"
 	"github.com/danielpacak/docker-registry-client/pkg/auth"
 	"github.com/danielpacak/docker-registry-client/pkg/registry"
 	"log"
@@ -12,7 +13,7 @@ import (
 )
 
 type dummyScanner struct {
-	data model.ScanResult
+	data microscanner.ScanResult
 }
 
 func NewScanner(dataFile string) (image.Scanner, error) {
@@ -20,7 +21,7 @@ func NewScanner(dataFile string) (image.Scanner, error) {
 	if err != nil {
 		return nil, fmt.Errorf("opening data file: %v", err)
 	}
-	var data model.ScanResult
+	var data microscanner.ScanResult
 	err = json.NewDecoder(file).Decode(&data)
 	if err != nil {
 		return nil, fmt.Errorf("decoding data file: %v", err)
@@ -30,7 +31,7 @@ func NewScanner(dataFile string) (image.Scanner, error) {
 	}, nil
 }
 
-func (s *dummyScanner) Scan(req model.ScanRequest) error {
+func (s *dummyScanner) Scan(req harbor.ScanRequest) error {
 	client, err := registry.NewClient(req.RegistryURL, auth.NewBearerTokenAuthorizer(req.RegistryToken))
 	if err != nil {
 		return fmt.Errorf("constructing registry client: %v", err)
@@ -46,6 +47,6 @@ func (s *dummyScanner) Scan(req model.ScanRequest) error {
 	return nil
 }
 
-func (s *dummyScanner) GetResult(digest string) (*model.ScanResult, error) {
+func (s *dummyScanner) GetResult(digest string) (*microscanner.ScanResult, error) {
 	return &s.data, nil
 }
