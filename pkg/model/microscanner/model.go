@@ -1,3 +1,4 @@
+// microscanner
 package microscanner
 
 type ScanResult struct {
@@ -25,12 +26,14 @@ type Resource struct {
 }
 
 type Vulnerability struct {
-	Name           string `json:"name"`
-	Description    string `json:"description"`
-	VendorURL      string `json:"vendor_url"`
-	VendorSeverity string `json:"vendor_severity"`
-	Classification string `json:"classification"`
-	NVDURL         string `json:"nvd_url"`
+	Name             string `json:"name"`
+	Description      string `json:"description"`
+	VendorURL        string `json:"vendor_url"`
+	VendorSeverity   string `json:"vendor_severity"`
+	VendorSeverityV3 string `json:"vendor_severity_v3"`
+	Classification   string `json:"classification"`
+	NVDURL           string `json:"nvd_url"`
+	NVDSeverityV3    string `json:"nvd_severity_v3"`
 }
 
 type Summary struct {

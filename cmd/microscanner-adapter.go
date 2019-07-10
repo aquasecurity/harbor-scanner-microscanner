@@ -2,7 +2,7 @@ package main
 
 import (
 	"github.com/aquasecurity/harbor-microscanner-adapter/pkg/http/api/v1"
-	"github.com/aquasecurity/harbor-microscanner-adapter/pkg/image/dummy"
+	"github.com/aquasecurity/harbor-microscanner-adapter/pkg/image/microscanner"
 	"github.com/gorilla/mux"
 	"log"
 	"net/http"
@@ -18,7 +18,7 @@ func main() {
 	cfg := getConfig()
 	log.Printf("Starting harbor-microscanner-adapter with config %v", cfg)
 
-	scanner, err := dummy.NewScanner(cfg.dataFile)
+	scanner, err := microscanner.NewScanner(cfg.dataFile)
 	if err != nil {
 		log.Fatalf("Error: %v", err)
 	}
@@ -29,7 +29,7 @@ func main() {
 	v1Router := router.PathPrefix("/api/v1").Subrouter()
 
 	v1Router.Methods("POST").Path("/scan").HandlerFunc(apiHandler.CreateScan)
-	v1Router.Methods("GET").Path("/scan/{digest}").HandlerFunc(apiHandler.GetScanResult)
+	v1Router.Methods("GET").Path("/scan/{detailsKey}").HandlerFunc(apiHandler.GetScanResult)
 
 	err = http.ListenAndServe(cfg.addr, router)
 	if err != nil && err != http.ErrServerClosed {
