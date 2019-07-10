@@ -1,43 +1,33 @@
 ---
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: aquasec
----
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
-  name: microscanner-proxy
-  namespace: aquasec
+  name: harbor-microscanner-adapter
 spec:
   template:
     metadata:
       labels:
-        app: microscanner-proxy
+        app: harbor-microscanner-adapter
     spec:
       containers:
         - name: main
-          image: aquasec/microscanner-proxy:latest
+          image: aquasec/harbor-microscanner-adapter:poc
           imagePullPolicy: IfNotPresent
           env:
-            - name: "MICRO_SCANNER_ADDR"
+            - name: "MICROSCANNER_ADDR"
               value: ":8080"
-            - name: "MICRO_SCANNER_DATA_FILE"
+            - name: "MICROSCANNER_DATA_FILE"
               value: "/app/data/dummy-scanner.json"
-            - name: "MICRO_SCANNER_TOKEN"
-              # FIXME Use secret
-              value: "YWIxNDU2NTFiNDJm"
           ports:
             - containerPort: 8080
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: microscanner-proxy
-  namespace: aquasec
+  name: harbor-microscanner-adapter
 spec:
   selector:
-    app: microscanner-proxy
+    app: harbor-microscanner-adapter
   type: LoadBalancer
   ports:
     - protocol: TCP

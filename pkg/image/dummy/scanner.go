@@ -5,6 +5,9 @@ import (
 	"fmt"
 	"github.com/aquasecurity/microscanner-proxy/pkg/image"
 	"github.com/aquasecurity/microscanner-proxy/pkg/model"
+	"github.com/danielpacak/docker-registry-client/pkg/auth"
+	"github.com/danielpacak/docker-registry-client/pkg/registry"
+	"log"
 	"os"
 )
 
@@ -28,10 +31,21 @@ func NewScanner(dataFile string) (image.Scanner, error) {
 }
 
 func (s *dummyScanner) Scan(req model.ScanRequest) error {
-	fmt.Printf("I should do actual scanning at some point %v", req)
+	client, err := registry.NewClient(req.RegistryURL, auth.NewBearerTokenAuthorizer(req.RegistryToken))
+	if err != nil {
+		return fmt.Errorf("constructing registry client: %v", err)
+	}
+	log.Printf("Saving image %s:%s", req.Repository, req.Digest)
+	fsRoot, err := client.SaveImage(req.Repository, req.Digest, "/tmp/docker")
+	if err != nil {
+		return fmt.Errorf("saving image: %v", err)
+	}
+
+	log.Printf("Image saved to %s", fsRoot)
+
 	return nil
 }
 
-func (s *dummyScanner) GetResults(correlationID string) (*model.ScanResult, error) {
+func (s *dummyScanner) GetResult(digest string) (*model.ScanResult, error) {
 	return &s.data, nil
 }

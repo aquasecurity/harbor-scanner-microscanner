@@ -1,7 +1,6 @@
 package model
 
 type ScanRequest struct {
-	CorrelationID string `json:"correlation_id"`
 	RegistryURL   string `json:"registry_url"`
 	RegistryToken string `json:"registry_token"`
 	Repository    string `json:"repository"`

@@ -2,10 +2,10 @@ package v1
 
 import (
 	"encoding/json"
-	"fmt"
 	"github.com/aquasecurity/microscanner-proxy/pkg/image"
 	"github.com/aquasecurity/microscanner-proxy/pkg/model"
 	"github.com/gorilla/mux"
+	"log"
 	"net/http"
 )
 
@@ -27,7 +27,7 @@ func (h *APIHandler) CreateScan(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	fmt.Printf("Request received to scan image=[%v]\n", scanRequest)
+	log.Printf("CreateScan request received\n\t%v", scanRequest)
 
 	err = h.scanner.Scan(scanRequest)
 	if err != nil {
@@ -38,19 +38,19 @@ func (h *APIHandler) CreateScan(res http.ResponseWriter, req *http.Request) {
 	res.WriteHeader(http.StatusCreated)
 }
 
-func (h *APIHandler) GetScan(res http.ResponseWriter, req *http.Request) {
+func (h *APIHandler) GetScanResult(res http.ResponseWriter, req *http.Request) {
 	vars := mux.Vars(req)
-	correlationID, _ := vars["correlationID"]
-	fmt.Printf("Request received for scan results with correlationID=[%v])\n", correlationID)
+	digest, _ := vars["digest"]
+	log.Printf("GetScanResult request received (digest=%s)", digest)
 
-	scanResults, err := h.scanner.GetResults(correlationID)
+	scanResult, err := h.scanner.GetResult(digest)
 	if err != nil {
 		http.Error(res, "Internal Server Error", 500)
 		return
 	}
 
 	res.Header().Set("Content-Type", "application/json")
-	err = json.NewEncoder(res).Encode(scanResults)
+	err = json.NewEncoder(res).Encode(scanResult)
 	if err != nil {
 		http.Error(res, "Internal Server Error", 500)
 		return
