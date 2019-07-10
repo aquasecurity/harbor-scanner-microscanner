@@ -3,9 +3,9 @@ package dummy
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/aquasecurity/microscanner-proxy/pkg/image"
-	"github.com/aquasecurity/microscanner-proxy/pkg/model/harbor"
-	"github.com/aquasecurity/microscanner-proxy/pkg/model/microscanner"
+	"github.com/aquasecurity/harbor-microscanner-adapter/pkg/image"
+	"github.com/aquasecurity/harbor-microscanner-adapter/pkg/model/harbor"
+	"github.com/aquasecurity/harbor-microscanner-adapter/pkg/model/microscanner"
 	"github.com/danielpacak/docker-registry-client/pkg/auth"
 	"github.com/danielpacak/docker-registry-client/pkg/registry"
 	"log"

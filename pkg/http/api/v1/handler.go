@@ -2,9 +2,9 @@ package v1
 
 import (
 	"encoding/json"
-	"github.com/aquasecurity/microscanner-proxy/pkg/image"
-	"github.com/aquasecurity/microscanner-proxy/pkg/model"
-	"github.com/aquasecurity/microscanner-proxy/pkg/model/harbor"
+	"github.com/aquasecurity/harbor-microscanner-adapter/pkg/image"
+	"github.com/aquasecurity/harbor-microscanner-adapter/pkg/model"
+	"github.com/aquasecurity/harbor-microscanner-adapter/pkg/model/harbor"
 	"github.com/gorilla/mux"
 	"log"
 	"net/http"

@@ -1,8 +1,8 @@
 package model
 
 import (
-	"github.com/aquasecurity/microscanner-proxy/pkg/model/harbor"
-	"github.com/aquasecurity/microscanner-proxy/pkg/model/microscanner"
+	"github.com/aquasecurity/harbor-microscanner-adapter/pkg/model/harbor"
+	"github.com/aquasecurity/harbor-microscanner-adapter/pkg/model/microscanner"
 )
 
 func Transform(digest string, sr *microscanner.ScanResult) (*harbor.ScanResult, error) {

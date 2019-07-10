@@ -1,8 +1,8 @@
 package main
 
 import (
-	"github.com/aquasecurity/microscanner-proxy/pkg/http/api/v1"
-	"github.com/aquasecurity/microscanner-proxy/pkg/image/dummy"
+	"github.com/aquasecurity/harbor-microscanner-adapter/pkg/http/api/v1"
+	"github.com/aquasecurity/harbor-microscanner-adapter/pkg/image/dummy"
 	"github.com/gorilla/mux"
 	"log"
 	"net/http"

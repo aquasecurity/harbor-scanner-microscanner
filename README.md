@@ -1,4 +1,4 @@
-# harbor-microscaner-adapter
+# harbor-microscanner-adapter
 
 ```
 $ eval $(minikube docker-env -p harbor)

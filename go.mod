@@ -1,4 +1,4 @@
-module github.com/aquasecurity/microscanner-proxy
+module github.com/aquasecurity/harbor-microscanner-adapter
 
 go 1.12
 
