@@ -1,12 +1,4 @@
-package model
-
-type ScanRequest struct {
-	RegistryURL   string `json:"registry_url"`
-	RegistryToken string `json:"registry_token"`
-	Repository    string `json:"repository"`
-	Tag           string `json:"tag"`
-	Digest        string `json:"digest"`
-}
+package microscanner
 
 type ScanResult struct {
 	Digest    string         `json:"digest"`

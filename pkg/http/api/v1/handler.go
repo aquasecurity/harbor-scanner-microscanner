@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"github.com/aquasecurity/microscanner-proxy/pkg/image"
 	"github.com/aquasecurity/microscanner-proxy/pkg/model"
+	"github.com/aquasecurity/microscanner-proxy/pkg/model/harbor"
 	"github.com/gorilla/mux"
 	"log"
 	"net/http"
@@ -20,7 +21,7 @@ func NewAPIHandler(scanner image.Scanner) *APIHandler {
 }
 
 func (h *APIHandler) CreateScan(res http.ResponseWriter, req *http.Request) {
-	scanRequest := model.ScanRequest{}
+	scanRequest := harbor.ScanRequest{}
 	err := json.NewDecoder(req.Body).Decode(&scanRequest)
 	if err != nil {
 		http.Error(res, "Internal Server Error", 500)
@@ -43,14 +44,20 @@ func (h *APIHandler) GetScanResult(res http.ResponseWriter, req *http.Request) {
 	digest, _ := vars["digest"]
 	log.Printf("GetScanResult request received (digest=%s)", digest)
 
-	scanResult, err := h.scanner.GetResult(digest)
+	microscannerScanResult, err := h.scanner.GetResult(digest)
+	if err != nil {
+		http.Error(res, "Internal Server Error", 500)
+		return
+	}
+
+	harborScanResult, err := model.Transform(digest, microscannerScanResult)
 	if err != nil {
 		http.Error(res, "Internal Server Error", 500)
 		return
 	}
 
 	res.Header().Set("Content-Type", "application/json")
-	err = json.NewEncoder(res).Encode(scanResult)
+	err = json.NewEncoder(res).Encode(harborScanResult)
 	if err != nil {
 		http.Error(res, "Internal Server Error", 500)
 		return
