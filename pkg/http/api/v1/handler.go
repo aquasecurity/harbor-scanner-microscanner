@@ -3,7 +3,6 @@ package v1
 import (
 	"encoding/json"
 	"github.com/aquasecurity/harbor-microscanner-adapter/pkg/image"
-	"github.com/aquasecurity/harbor-microscanner-adapter/pkg/model"
 	"github.com/aquasecurity/harbor-microscanner-adapter/pkg/model/harbor"
 	"github.com/gorilla/mux"
 	"log"
@@ -30,34 +29,35 @@ func (h *APIHandler) CreateScan(res http.ResponseWriter, req *http.Request) {
 
 	log.Printf("CreateScan request received\n\t%v", scanRequest)
 
-	err = h.scanner.Scan(scanRequest)
+	scanResponse, err := h.scanner.Scan(scanRequest)
 	if err != nil {
 		http.Error(res, "Internal Server Error", 500)
 		return
 	}
 
 	res.WriteHeader(http.StatusCreated)
-}
 
-func (h *APIHandler) GetScanResult(res http.ResponseWriter, req *http.Request) {
-	vars := mux.Vars(req)
-	digest, _ := vars["digest"]
-	log.Printf("GetScanResult request received (digest=%s)", digest)
-
-	microscannerScanResult, err := h.scanner.GetResult(digest)
+	res.Header().Set("Content-Type", "application/json")
+	err = json.NewEncoder(res).Encode(scanResponse)
 	if err != nil {
 		http.Error(res, "Internal Server Error", 500)
 		return
 	}
+}
 
-	harborScanResult, err := model.Transform(digest, microscannerScanResult)
+func (h *APIHandler) GetScanResult(res http.ResponseWriter, req *http.Request) {
+	vars := mux.Vars(req)
+	detailsKey, _ := vars["detailsKey"]
+	log.Printf("GetScanResult request received (detailsKey=%s)", detailsKey)
+
+	scanResult, err := h.scanner.GetResult(detailsKey)
 	if err != nil {
 		http.Error(res, "Internal Server Error", 500)
 		return
 	}
 
 	res.Header().Set("Content-Type", "application/json")
-	err = json.NewEncoder(res).Encode(harborScanResult)
+	err = json.NewEncoder(res).Encode(scanResult)
 	if err != nil {
 		http.Error(res, "Internal Server Error", 500)
 		return
