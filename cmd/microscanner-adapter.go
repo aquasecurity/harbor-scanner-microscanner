@@ -10,8 +10,9 @@ import (
 )
 
 type config struct {
-	addr     string
-	dataFile string
+	addr       string
+	dataFile   string
+	dockerHost string
 }
 
 func main() {
@@ -41,12 +42,16 @@ func getConfig() config {
 	cfg := config{
 		addr:     ":8080",
 		dataFile: "/app/data/dummy-scanner.json",
+		dockerHost: "tcp://localhost:2375",
 	}
-	if addr, ok := os.LookupEnv("MICROSCANNER_ADDR"); ok {
+	if addr, ok := os.LookupEnv("ADAPTER_ADDR"); ok {
 		cfg.addr = addr
 	}
-	if dataFile, ok := os.LookupEnv("MICROSCANNER_DATA_FILE"); ok {
+	if dataFile, ok := os.LookupEnv("ADAPTER_DATA_FILE"); ok {
 		cfg.dataFile = dataFile
+	}
+	if dockerHost, ok := os.LookupEnv("ADAPTER_DOCKER_HOST"); ok{
+		cfg.dockerHost = dockerHost
 	}
 	return cfg
 }
