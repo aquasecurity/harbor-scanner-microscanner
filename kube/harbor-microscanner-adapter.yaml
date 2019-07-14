@@ -16,10 +16,13 @@ spec:
           env:
             - name: "ADAPTER_ADDR"
               value: ":8080"
-            - name: "ADAPTER_DATA_FILE"
-              value: "/app/data/dummy-scanner.json"
             - name: "ADAPTER_DOCKER_HOST"
               value: "tcp://localhost:2375"
+            - name: "ADAPTER_MICRO_SCANNER_TOKEN"
+              valueFrom:
+                secretKeyRef:
+                  name: harbor-microscanner-adapter
+                  key: microscanner-token
           ports:
             - containerPort: 8080
         - name: dind
