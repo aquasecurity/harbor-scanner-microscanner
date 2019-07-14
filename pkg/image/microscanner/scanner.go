@@ -2,55 +2,96 @@ package microscanner
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
+	"github.com/aquasecurity/harbor-microscanner-adapter/pkg/etc"
 	"github.com/aquasecurity/harbor-microscanner-adapter/pkg/image"
 	"github.com/aquasecurity/harbor-microscanner-adapter/pkg/model/harbor"
 	"github.com/aquasecurity/harbor-microscanner-adapter/pkg/model/microscanner"
-	"github.com/danielpacak/docker-registry-client/pkg/auth"
-	"github.com/danielpacak/docker-registry-client/pkg/registry"
+	"github.com/google/uuid"
 	"log"
 	"os"
+	"path/filepath"
 )
 
 type imageScanner struct {
-	data microscanner.ScanResult
+	cfg     *etc.Config
+	wrapper *Wrapper
+	data    microscanner.ScanResult
 }
 
-func NewScanner(dataFile string) (image.Scanner, error) {
-	file, err := os.Open(dataFile)
-	if err != nil {
-		return nil, fmt.Errorf("opening data file: %v", err)
-	}
-	var data microscanner.ScanResult
-	err = json.NewDecoder(file).Decode(&data)
-	if err != nil {
-		return nil, fmt.Errorf("decoding data file: %v", err)
-	}
+func NewScanner(cfg *etc.Config) (image.Scanner, error) {
 	return &imageScanner{
-		data: data,
+		cfg:     cfg,
+		wrapper: NewWrapper(cfg),
 	}, nil
 }
 
 func (s *imageScanner) Scan(req harbor.ScanRequest) (*harbor.ScanResponse, error) {
-	client, err := registry.NewClient(req.RegistryURL, auth.NewBearerTokenAuthorizer(req.RegistryToken))
+	scanID, err := uuid.NewRandom()
 	if err != nil {
-		return nil, fmt.Errorf("constructing registry client: %v", err)
+		return nil, err
 	}
-	log.Printf("Saving image %s:%s", req.Repository, req.Digest)
-	fsRoot, err := client.SaveImage(req.Repository, req.Digest, "/tmp/docker")
+	log.Printf("RegistryURL: %s", req.RegistryURL)
+	log.Printf("Repository: %s", req.Repository)
+	log.Printf("Tag: %s", req.Tag)
+	log.Printf("Digest: %s", req.Digest)
+	log.Printf("Scan request %s", scanID.String())
+	imageToScan := fmt.Sprintf("%s/%s:%s", req.RegistryURL, req.Repository, req.Tag)
+	err = s.execWrapperScript(scanID, imageToScan)
 	if err != nil {
-		return nil, fmt.Errorf("saving image: %v", err)
+		return nil, err
 	}
-
-	log.Printf("Image saved to %s", fsRoot)
 
 	return &harbor.ScanResponse{
-		DetailsKey: req.Digest,
+		DetailsKey: scanID.String(),
 	}, nil
 }
 
+// execWrapperScript executes the microscanner-wrapper scan.sh script and save the result JSON to a file.
+func (s *imageScanner) execWrapperScript(scanID uuid.UUID, image string) error {
+	out, err := s.wrapper.Scan(image)
+	if err != nil {
+		return err
+	}
+
+	f, err := os.Create(s.GetScanResultFilePath(scanID))
+	if err != nil {
+		return err
+	}
+	defer func() { _ = f.Close() }()
+
+	_, err = f.WriteString(out)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func (s *imageScanner) GetResult(detailsKey string) (*harbor.ScanResult, error) {
-	return s.toHarborScanResult(&s.data)
+	if detailsKey == "" {
+		return nil, errors.New("detailsKey must not be nil")
+	}
+
+	scanID, err := uuid.Parse(detailsKey)
+	if err != nil {
+		return nil, err
+	}
+
+	file, err := os.Open(s.GetScanResultFilePath(scanID))
+	if err != nil {
+		return nil, fmt.Errorf("opening scan result file: %v", err)
+	}
+	var data microscanner.ScanResult
+	err = json.NewDecoder(file).Decode(&data)
+	if err != nil {
+		return nil, fmt.Errorf("decoding result file: %v", err)
+	}
+	return s.toHarborScanResult(&data)
+}
+
+func (s *imageScanner) GetScanResultFilePath(scanID uuid.UUID) string {
+	return filepath.Join("/tmp/", scanID.String()+".json")
 }
 
 func (s *imageScanner) toHarborScanResult(sr *microscanner.ScanResult) (*harbor.ScanResult, error) {

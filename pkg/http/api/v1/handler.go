@@ -19,6 +19,10 @@ func NewAPIHandler(scanner image.Scanner) *APIHandler {
 	}
 }
 
+func (h *APIHandler) GetVersion(res http.ResponseWriter, req *http.Request) {
+	res.WriteHeader(http.StatusOK)
+}
+
 func (h *APIHandler) CreateScan(res http.ResponseWriter, req *http.Request) {
 	scanRequest := harbor.ScanRequest{}
 	err := json.NewDecoder(req.Body).Decode(&scanRequest)
