@@ -20,6 +20,8 @@ spec:
               value: "tcp://localhost:2375"
             - name: "ADAPTER_REGISTRY_URL"
               value: "core.harbor.domain"
+            - name: "ADAPTER_MICRO_SCANNER_OPTIONS"
+              value: "-c"
             - name: "ADAPTER_MICRO_SCANNER_TOKEN"
               valueFrom:
                 secretKeyRef:
