@@ -37,6 +37,7 @@ func (w *Wrapper) Scan(image string) (string, error) {
 	cmd.Env = []string{
 		fmt.Sprintf("DOCKER_HOST=%s", w.cfg.DockerHost),
 		fmt.Sprintf("MICROSCANNER_TOKEN=%s", w.cfg.MicroScannerToken),
+		fmt.Sprintf("MICROSCANNER_OPTIONS=%s", w.cfg.MicroScannerOptions),
 		"USE_LOCAL=1",
 	}
 

@@ -6,10 +6,11 @@ import (
 )
 
 type Config struct {
-	Addr              string
-	DockerHost        string
-	MicroScannerToken string
-	RegistryURL       string
+	Addr                string
+	DockerHost          string
+	MicroScannerOptions string
+	MicroScannerToken   string
+	RegistryURL         string
 }
 
 func GetConfig() (*Config, error) {
@@ -30,6 +31,9 @@ func GetConfig() (*Config, error) {
 	}
 	if registryURL, ok := os.LookupEnv("ADAPTER_REGISTRY_URL"); ok {
 		cfg.RegistryURL = registryURL
+	}
+	if options, ok := os.LookupEnv("ADAPTER_MICRO_SCANNER_OPTIONS"); ok {
+		cfg.MicroScannerOptions = options
 	}
 	return cfg, nil
 }
