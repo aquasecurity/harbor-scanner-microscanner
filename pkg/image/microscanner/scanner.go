@@ -37,7 +37,14 @@ func (s *imageScanner) Scan(req harbor.ScanRequest) (*harbor.ScanResponse, error
 	log.Printf("Tag: %s", req.Tag)
 	log.Printf("Digest: %s", req.Digest)
 	log.Printf("Scan request %s", scanID.String())
-	imageToScan := fmt.Sprintf("%s/%s:%s", req.RegistryURL, req.Repository, req.Tag)
+
+	registryURL := req.RegistryURL
+	if s.cfg.RegistryURL != "" {
+		log.Printf("Overwriting registry URL %s with %s", req.RegistryURL, s.cfg.RegistryURL)
+		registryURL = s.cfg.RegistryURL
+	}
+
+	imageToScan := fmt.Sprintf("%s/%s:%s", registryURL, req.Repository, req.Tag)
 	err = s.execWrapperScript(scanID, imageToScan)
 	if err != nil {
 		return nil, err
@@ -101,14 +108,12 @@ func (s *imageScanner) toHarborScanResult(sr *microscanner.ScanResult) (*harbor.
 		for _, vln := range resourceScan.Vulnerabilities {
 			items = append(items, &harbor.VulnerabilityItem{
 				ID:          vln.Name,
+				Severity:    s.toHarborSeverity(vln.NVDSeverity),
 				Pkg:         resourceScan.Resource.Name,
 				Version:     resourceScan.Resource.Version,
-				Link:        vln.VendorURL,
 				Description: vln.Description,
-				// TODO Map Severity property
-				Severity: harbor.SevHigh,
-				// TODO Map Fixed property
-				Fixed: "linux.org",
+				Link:        vln.NVDURL,
+				Fixed:       vln.FixVersion,
 			})
 		}
 	}
@@ -122,16 +127,52 @@ func (s *imageScanner) toHarborScanResult(sr *microscanner.ScanResult) (*harbor.
 	}, nil
 }
 
-// TODO Do the actual mapping
-func (s *imageScanner) toComponentsOverview(_ *microscanner.ScanResult) (harbor.Severity, *harbor.ComponentsOverview) {
-	return harbor.SevHigh, &harbor.ComponentsOverview{
-		Total: 24 + 13 + 7 + 1 + 5,
-		Summary: []*harbor.ComponentsOverviewEntry{
-			{Sev: 1, Count: 24},
-			{Sev: 2, Count: 13},
-			{Sev: 3, Count: 7},
-			{Sev: 4, Count: 1},
-			{Sev: 5, Count: 5},
-		},
+func (s *imageScanner) toHarborSeverity(severity string) harbor.Severity {
+	switch severity {
+	case "high":
+		return harbor.SevHigh
+	case "medium":
+		return harbor.SevMedium
+	case "low":
+		return harbor.SevLow
+	default:
+		log.Printf("Unknown microscanner severity `%s`", severity)
+		return harbor.SevUnknown
+	}
+}
+
+func (s *imageScanner) toComponentsOverview(sr *microscanner.ScanResult) (harbor.Severity, *harbor.ComponentsOverview) {
+	overallSev := harbor.SevNone
+	total := 0
+	sevToCount := map[harbor.Severity]int{
+		harbor.SevHigh:    0,
+		harbor.SevMedium:  0,
+		harbor.SevLow:     0,
+		harbor.SevUnknown: 0,
+		harbor.SevNone:    0,
+	}
+
+	for _, resourceScan := range sr.Resources {
+		for _, vln := range resourceScan.Vulnerabilities {
+			sev := s.toHarborSeverity(vln.NVDSeverity)
+			sevToCount[sev]++
+			total++
+			if sev > overallSev {
+				overallSev = sev
+			}
+		}
+	}
+
+	var summary []*harbor.ComponentsOverviewEntry
+	for k, v := range sevToCount {
+		summary = append(summary, &harbor.ComponentsOverviewEntry{
+			Sev:   int(k),
+			Count: v,
+		})
+	}
+
+	return overallSev, &harbor.ComponentsOverview{
+		Total:   total,
+		Summary: summary,
 	}
 }

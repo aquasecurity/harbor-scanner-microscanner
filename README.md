@@ -9,6 +9,9 @@ MICROSCANNER_TOKEN="TOKENGOESHERE"
 kubectl create secret generic harbor-microscanner-adapter \
   --from-literal="microscanner-token=${MICROSCANNER_TOKEN}"
 
+kubectl create secret generic harbor-microscanner-adapter-dind \
+  --from-file="ca.crt=/Users/dpacak/Downloads/ca.crt"
+
 kubectl -n harbor apply -f kube/harbor-microscanner-adapter.yaml
 ```
 
