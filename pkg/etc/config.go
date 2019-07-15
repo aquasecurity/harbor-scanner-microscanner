@@ -9,6 +9,7 @@ type Config struct {
 	Addr              string
 	DockerHost        string
 	MicroScannerToken string
+	RegistryURL       string
 }
 
 func GetConfig() (*Config, error) {
@@ -26,6 +27,9 @@ func GetConfig() (*Config, error) {
 		cfg.MicroScannerToken = microScannerToken
 	} else {
 		return nil, errors.New("ADAPTER_MICRO_SCANNER_TOKEN not specified")
+	}
+	if registryURL, ok := os.LookupEnv("ADAPTER_REGISTRY_URL"); ok {
+		cfg.RegistryURL = registryURL
 	}
 	return cfg, nil
 }
