@@ -98,7 +98,7 @@ func (s *imageScanner) GetResult(detailsKey string) (*harbor.ScanResult, error) 
 }
 
 func (s *imageScanner) GetScanResultFilePath(scanID uuid.UUID) string {
-	return filepath.Join("/tmp/", scanID.String()+".json")
+	return filepath.Join("/data", "microscanner", scanID.String()+".json")
 }
 
 func (s *imageScanner) toHarborScanResult(sr *microscanner.ScanResult) (*harbor.ScanResult, error) {
