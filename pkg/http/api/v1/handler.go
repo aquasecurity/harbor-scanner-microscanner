@@ -5,7 +5,6 @@ import (
 	"github.com/aquasecurity/harbor-microscanner-adapter/pkg/image"
 	"github.com/aquasecurity/harbor-microscanner-adapter/pkg/model/harbor"
 	"github.com/gorilla/mux"
-	"log"
 	"net/http"
 )
 
@@ -31,8 +30,6 @@ func (h *APIHandler) CreateScan(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	log.Printf("CreateScan request received\n\t%v", scanRequest)
-
 	scanResponse, err := h.scanner.Scan(scanRequest)
 	if err != nil {
 		http.Error(res, "Internal Server Error", 500)
@@ -52,7 +49,6 @@ func (h *APIHandler) CreateScan(res http.ResponseWriter, req *http.Request) {
 func (h *APIHandler) GetScanResult(res http.ResponseWriter, req *http.Request) {
 	vars := mux.Vars(req)
 	detailsKey, _ := vars["detailsKey"]
-	log.Printf("GetScanResult request received (detailsKey=%s)", detailsKey)
 
 	scanResult, err := h.scanner.GetResult(detailsKey)
 	if err != nil {

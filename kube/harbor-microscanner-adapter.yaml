@@ -29,6 +29,9 @@ spec:
                   key: microscanner-token
           ports:
             - containerPort: 8080
+          volumeMounts:
+            - mountPath: /data/microscanner
+              name: microscanner-data
         - name: dind
           image: docker:18.05-dind
           imagePullPolicy: IfNotPresent
@@ -44,6 +47,9 @@ spec:
               mountPath: /etc/docker/certs.d/core.harbor.domain
               readOnly: true
       volumes:
+        - name: microscanner-data
+          hostPath:
+            path: /data/microscanner
         - name: dind-storage
           emptyDir: {}
         - name: dind-config
