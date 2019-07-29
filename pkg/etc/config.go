@@ -7,6 +7,7 @@ import (
 
 type Config struct {
 	Addr                string
+	ScannerDataDir      string
 	DockerHost          string
 	MicroScannerOptions string
 	MicroScannerToken   string
@@ -15,24 +16,28 @@ type Config struct {
 
 func GetConfig() (*Config, error) {
 	cfg := &Config{
-		Addr:       ":8080",
-		DockerHost: "tcp://localhost:2375",
+		Addr:           ":8080",
+		DockerHost:     "tcp://localhost:2375",
+		ScannerDataDir: "/data/scanner",
 	}
-	if addr, ok := os.LookupEnv("ADAPTER_ADDR"); ok {
+	if addr, ok := os.LookupEnv("SCANNER_ADDR"); ok {
 		cfg.Addr = addr
 	}
-	if dockerHost, ok := os.LookupEnv("ADAPTER_DOCKER_HOST"); ok {
+	if dir, ok := os.LookupEnv("SCANNER_DATA_DIR"); ok {
+		cfg.ScannerDataDir = dir
+	}
+	if dockerHost, ok := os.LookupEnv("SCANNER_DOCKER_HOST"); ok {
 		cfg.DockerHost = dockerHost
 	}
-	if microScannerToken, ok := os.LookupEnv("ADAPTER_MICRO_SCANNER_TOKEN"); ok {
+	if microScannerToken, ok := os.LookupEnv("SCANNER_MICROSCANNER_TOKEN"); ok {
 		cfg.MicroScannerToken = microScannerToken
 	} else {
-		return nil, errors.New("ADAPTER_MICRO_SCANNER_TOKEN not specified")
+		return nil, errors.New("SCANNER_MICROSCANNER_TOKEN not specified")
 	}
-	if registryURL, ok := os.LookupEnv("ADAPTER_REGISTRY_URL"); ok {
+	if registryURL, ok := os.LookupEnv("SCANNER_REGISTRY_URL"); ok {
 		cfg.RegistryURL = registryURL
 	}
-	if options, ok := os.LookupEnv("ADAPTER_MICRO_SCANNER_OPTIONS"); ok {
+	if options, ok := os.LookupEnv("SCANNER_MICROSCANNER_OPTIONS"); ok {
 		cfg.MicroScannerOptions = options
 	}
 	return cfg, nil

@@ -1,3 +1,5 @@
+github.com/danielpacak/harbor-scanner-contract v0.0.0-20190719123038-b18bcc294a61 h1:Oom9EVNZPYwbzFx4LAmrTogMLh48smmBS8cLWjnqupw=
+github.com/danielpacak/harbor-scanner-contract v0.0.0-20190719123038-b18bcc294a61/go.mod h1:VbqoFM10uK8PA2ncRT1xeuez6MUeCmLbRmz+/3MuhQE=
 github.com/google/uuid v1.1.1 h1:Gkbcsh/GbpXz7lPftLA3P6TYMwjCLYm83jiFQZF/3gY=
 github.com/google/uuid v1.1.1/go.mod h1:TIyPZe4MgqvfeYDBFedMoGGpEw/LqOeaOT+nhxU+yHo=
 github.com/gorilla/mux v1.7.2 h1:zoNxOV7WjqXptQOVngLmcSQgXmgk4NMz1HibBchjl/I=
