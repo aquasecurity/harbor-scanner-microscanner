@@ -4,10 +4,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/aquasecurity/harbor-microscanner-adapter/pkg/etc"
-	"github.com/aquasecurity/harbor-microscanner-adapter/pkg/image"
-	"github.com/aquasecurity/harbor-microscanner-adapter/pkg/model/harbor"
-	"github.com/aquasecurity/harbor-microscanner-adapter/pkg/model/microscanner"
+	"github.com/danielpacak/harbor-scanner-contract/pkg/image"
+	"github.com/danielpacak/harbor-scanner-contract/pkg/model/harbor"
+	"github.com/danielpacak/harbor-scanner-microscanner/pkg/etc"
+	"github.com/danielpacak/harbor-scanner-microscanner/pkg/model/microscanner"
 	"github.com/google/uuid"
 	"log"
 	"os"
@@ -55,7 +55,7 @@ func (s *imageScanner) Scan(req harbor.ScanRequest) (*harbor.ScanResponse, error
 	}, nil
 }
 
-// execWrapperScript executes the microscanner-wrapper scan.sh script and save the result JSON to a file.
+// execWrapperScript executes the microscanner-wrapper.sh script and save the result JSON to a file.
 func (s *imageScanner) execWrapperScript(scanID uuid.UUID, image string) error {
 	out, err := s.wrapper.Scan(image)
 	if err != nil {

@@ -1,14 +1,12 @@
 SOURCES := $(shell find . -name '*.go')
-BINARY := microscanner-adapter
-IMAGE := aquasec/harbor-microscanner-adapter:poc
+BINARY := scanner-microscanner
+IMAGE_TAG := poc
+IMAGE := danielpacak/harbor-scanner-microscanner:$(IMAGE_TAG)
 
 build: $(BINARY)
 
 $(BINARY): $(SOURCES)
-	GOOS=linux GO111MODULE=on CGO_ENABLED=0 go build -o bin/$(BINARY) cmd/microscanner-adapter.go
+	GOOS=linux GO111MODULE=on CGO_ENABLED=0 go build -o bin/$(BINARY) cmd/scanner-microscanner/main.go
 
 container: build
 	docker build -t $(IMAGE) .
-
-container-run: container
-	docker run --name microscanner-adapter --rm -d -p 8080:8080 $(IMAGE)

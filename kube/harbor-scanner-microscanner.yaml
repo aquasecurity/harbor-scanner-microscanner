@@ -1,31 +1,37 @@
 ---
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: harbor-microscanner-adapter
+  name: harbor-scanner-microscanner
 spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: harbor-scanner-microscanner
   template:
     metadata:
       labels:
-        app: harbor-microscanner-adapter
+        app: harbor-scanner-microscanner
     spec:
       containers:
         - name: main
-          image: aquasec/harbor-microscanner-adapter:poc
+          image: danielpacak/harbor-scanner-microscanner:poc
           imagePullPolicy: IfNotPresent
           env:
-            - name: "ADAPTER_ADDR"
+            - name: "SCANNER_ADDR"
               value: ":8080"
-            - name: "ADAPTER_DOCKER_HOST"
+            - name: "SCANNER_DATA_DIR"
+              value: "/data/scanner"
+            - name: "SCANNER_DOCKER_HOST"
               value: "tcp://localhost:2375"
-            - name: "ADAPTER_REGISTRY_URL"
+            - name: "SCANNER_REGISTRY_URL"
               value: "core.harbor.domain"
-            - name: "ADAPTER_MICRO_SCANNER_OPTIONS"
+            - name: "SCANNER_MICROSCANNER_OPTIONS"
               value: "-c"
-            - name: "ADAPTER_MICRO_SCANNER_TOKEN"
+            - name: "SCANNER_MICROSCANNER_TOKEN"
               valueFrom:
                 secretKeyRef:
-                  name: harbor-microscanner-adapter
+                  name: harbor-scanner-microscanner
                   key: microscanner-token
           ports:
             - containerPort: 8080
@@ -54,15 +60,15 @@ spec:
           emptyDir: {}
         - name: dind-config
           secret:
-            secretName: harbor-microscanner-adapter-dind
+            secretName: harbor-scanner-microscanner-dind
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: harbor-microscanner-adapter
+  name: harbor-scanner-microscanner
 spec:
   selector:
-    app: harbor-microscanner-adapter
+    app: harbor-scanner-microscanner
   type: LoadBalancer
   ports:
     - protocol: TCP

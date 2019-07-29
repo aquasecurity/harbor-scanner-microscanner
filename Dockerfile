@@ -2,13 +2,13 @@ FROM alpine:3.10.1
 
 RUN apk add --no-cache docker bash ca-certificates && update-ca-certificates
 
-ADD bin/microscanner-adapter /app/microscanner-adapter
+ADD bin/scanner-microscanner /app/scanner-microscanner
 
 # Add Microscanner executable
 ADD https://get.aquasec.com/microscanner /usr/local/bin
 RUN chmod +x /usr/local/bin/microscanner
 
 # Add Microscanner Wrapper script
-ADD microscanner-wrapper/scan.sh /usr/local/bin/
+ADD microscanner/microscanner-wrapper.sh /usr/local/bin
 
-ENTRYPOINT ["/app/microscanner-adapter"]
+ENTRYPOINT ["/app/scanner-microscanner"]

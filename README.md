@@ -1,4 +1,4 @@
-# harbor-microscanner-adapter
+# harbor-scanner-microscanner
 
 ```
 eval $(minikube docker-env -p harbor)
@@ -6,17 +6,17 @@ eval $(minikube docker-env -p harbor)
 make container
 
 MICROSCANNER_TOKEN="TOKENGOESHERE"
-kubectl create secret generic harbor-microscanner-adapter \
+kubectl create secret generic harbor-scanner-microscanner \
   --from-literal="microscanner-token=${MICROSCANNER_TOKEN}"
 
-kubectl create secret generic harbor-microscanner-adapter-dind \
-  --from-file="ca.crt=/Users/dpacak/Downloads/ca.crt"
+kubectl create secret generic harbor-scanner-microscanner-dind \
+  --from-file="ca.crt=/path/to/harbor/ca.crt"
 
-kubectl -n harbor apply -f kube/harbor-microscanner-adapter.yaml
+kubectl apply -f kube/harbor-scanner-microscanner.yaml
 ```
 
 ```
-# Check harbor-microscanner-adapter pod name
+# Check harbor-scanner-microscanner pod name
 MICROSCANNER_ADAPTER_POD=harbor-microscanner-adapter-f49f79775-9bdtm
 
 kubectl exec ${MICROSCANNER_ADAPTER_POD} -c dind \
@@ -28,7 +28,7 @@ DOCKER_HOST=tcp://localhost:2375 docker pull core.harbor.domain/library/mongo:3.
 ```
 
 ```
-kubectl port-forward service/harbor-microscanner-adapter 8080:8080 > /dev/null &
+kubectl port-forward service/harbor-scanner-microscanner 8080:8080 &> /dev/null &
 curl -H http://localhost:8080/api/v1/
 ```
 

@@ -1,9 +1,9 @@
 package main
 
 import (
-	"github.com/aquasecurity/harbor-microscanner-adapter/pkg/etc"
-	"github.com/aquasecurity/harbor-microscanner-adapter/pkg/http/api/v1"
-	"github.com/aquasecurity/harbor-microscanner-adapter/pkg/image/microscanner"
+	"github.com/danielpacak/harbor-scanner-microscanner/pkg/etc"
+	"github.com/danielpacak/harbor-scanner-microscanner/pkg/http/api/v1"
+	"github.com/danielpacak/harbor-scanner-microscanner/pkg/image/microscanner"
 	"github.com/gorilla/mux"
 	"log"
 	"net/http"
@@ -15,7 +15,7 @@ func main() {
 		log.Fatalf("Error: %v", err)
 	}
 
-	log.Printf("Starting harbor-microscanner-adapter with config %v", cfg)
+	log.Printf("Starting harbor-scanner-microscanner with config %v", cfg)
 
 	scanner, err := microscanner.NewScanner(cfg)
 	if err != nil {

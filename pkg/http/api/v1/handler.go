@@ -2,9 +2,10 @@ package v1
 
 import (
 	"encoding/json"
-	"github.com/aquasecurity/harbor-microscanner-adapter/pkg/image"
-	"github.com/aquasecurity/harbor-microscanner-adapter/pkg/model/harbor"
+	"github.com/danielpacak/harbor-scanner-contract/pkg/image"
+	"github.com/danielpacak/harbor-scanner-contract/pkg/model/harbor"
 	"github.com/gorilla/mux"
+	"log"
 	"net/http"
 )
 
@@ -23,17 +24,23 @@ func (h *APIHandler) GetVersion(res http.ResponseWriter, req *http.Request) {
 }
 
 func (h *APIHandler) CreateScan(res http.ResponseWriter, req *http.Request) {
+	err := h.DoCreateScan(res, req)
+	if err != nil {
+		log.Printf("ERROR: %v", err)
+		http.Error(res, "Internal Server Error", http.StatusInternalServerError)
+	}
+}
+
+func (h *APIHandler) DoCreateScan(res http.ResponseWriter, req *http.Request) error {
 	scanRequest := harbor.ScanRequest{}
 	err := json.NewDecoder(req.Body).Decode(&scanRequest)
 	if err != nil {
-		http.Error(res, "Internal Server Error", 500)
-		return
+		return err
 	}
 
 	scanResponse, err := h.scanner.Scan(scanRequest)
 	if err != nil {
-		http.Error(res, "Internal Server Error", 500)
-		return
+		return err
 	}
 
 	res.WriteHeader(http.StatusCreated)
@@ -41,25 +48,32 @@ func (h *APIHandler) CreateScan(res http.ResponseWriter, req *http.Request) {
 	res.Header().Set("Content-Type", "application/json")
 	err = json.NewEncoder(res).Encode(scanResponse)
 	if err != nil {
-		http.Error(res, "Internal Server Error", 500)
-		return
+		return err
 	}
+	return nil
 }
 
 func (h *APIHandler) GetScanResult(res http.ResponseWriter, req *http.Request) {
+	err := h.DoGetScanResult(res, req)
+	if err != nil {
+		log.Printf("ERROR: %v", err)
+		http.Error(res, "Internal Server Error", http.StatusInternalServerError)
+	}
+}
+
+func (h *APIHandler) DoGetScanResult(res http.ResponseWriter, req *http.Request) error {
 	vars := mux.Vars(req)
 	detailsKey, _ := vars["detailsKey"]
 
 	scanResult, err := h.scanner.GetResult(detailsKey)
 	if err != nil {
-		http.Error(res, "Internal Server Error", 500)
-		return
+		return err
 	}
 
 	res.Header().Set("Content-Type", "application/json")
 	err = json.NewEncoder(res).Encode(scanResult)
 	if err != nil {
-		http.Error(res, "Internal Server Error", 500)
-		return
+		return err
 	}
+	return nil
 }
