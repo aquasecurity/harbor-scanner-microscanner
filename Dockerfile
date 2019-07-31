@@ -9,6 +9,6 @@ ADD https://get.aquasec.com/microscanner /usr/local/bin
 RUN chmod +x /usr/local/bin/microscanner
 
 # Add Microscanner Wrapper script
-ADD microscanner/microscanner-wrapper.sh /usr/local/bin
+ADD microscanner/wrapper.sh /usr/local/bin/microscanner-wrapper.sh
 
 ENTRYPOINT ["/app/scanner-microscanner"]

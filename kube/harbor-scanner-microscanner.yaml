@@ -20,10 +20,12 @@ spec:
           env:
             - name: "SCANNER_ADDR"
               value: ":8080"
-            - name: "SCANNER_DATA_DIR"
-              value: "/data/scanner"
             - name: "SCANNER_DOCKER_HOST"
               value: "tcp://localhost:2375"
+            - name: "SCANNER_STORE_DRIVER"
+              value: "fs"
+            - name: "SCANNER_STORE_FS_DATA_DIR"
+              value: "/data/scanner"
             - name: "SCANNER_REGISTRY_URL"
               value: "core.harbor.domain"
             - name: "SCANNER_MICROSCANNER_OPTIONS"
@@ -36,7 +38,7 @@ spec:
           ports:
             - containerPort: 8080
           volumeMounts:
-            - mountPath: /data/microscanner
+            - mountPath: /data/scanner
               name: microscanner-data
         - name: dind
           image: docker:18.05-dind

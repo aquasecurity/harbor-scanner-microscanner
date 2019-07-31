@@ -1,0 +1,37 @@
+version: '3'
+
+networks:
+  scanner:
+    driver: bridge
+
+services:
+  scanner:
+    image: danielpacak/harbor-scanner-microscanner:poc
+    environment:
+      SCANNER_ADDR: ":8080"
+      SCANNER_DOCKER_HOST: "tcp://localhost:2375"
+      SCANNER_MICROSCANNER_TOKEN: "XYZ"
+      SCANNER_STORE_DRIVER: "redis"
+      SCANNER_STORE_REDIS_URL: "redis://localhost:6379"
+    networks:
+      - scanner
+    ports:
+      - 8080:8080
+    volumes:
+      - microscanner-data:/data/scanner
+  dind:
+    image: docker:18.05-dind
+    privileged: true
+    environment:
+      DOCKER_HOST: "tcp://localhost:2375"
+    networks:
+      - scanner
+  redis:
+    image: redis:5.0.5
+    ports:
+      - 6379:6379
+    networks:
+      - scanner
+
+volumes:
+  microscanner-data:

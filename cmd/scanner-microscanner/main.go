@@ -3,7 +3,11 @@ package main
 import (
 	"github.com/danielpacak/harbor-scanner-microscanner/pkg/etc"
 	"github.com/danielpacak/harbor-scanner-microscanner/pkg/http/api/v1"
-	"github.com/danielpacak/harbor-scanner-microscanner/pkg/image/microscanner"
+	"github.com/danielpacak/harbor-scanner-microscanner/pkg/model"
+	"github.com/danielpacak/harbor-scanner-microscanner/pkg/scanner/microscanner"
+	"github.com/danielpacak/harbor-scanner-microscanner/pkg/store"
+	"github.com/danielpacak/harbor-scanner-microscanner/pkg/store/fs"
+	"github.com/danielpacak/harbor-scanner-microscanner/pkg/store/redis"
 	"github.com/gorilla/mux"
 	"log"
 	"net/http"
@@ -17,7 +21,12 @@ func main() {
 
 	log.Printf("Starting harbor-scanner-microscanner with config %v", cfg)
 
-	scanner, err := microscanner.NewScanner(cfg)
+	dataStore, err := GetStore(cfg)
+	if err != nil {
+		log.Fatalf("Error: %v", err)
+	}
+
+	scanner, err := microscanner.NewScanner(cfg, model.NewTransformer(), dataStore)
 	if err != nil {
 		log.Fatalf("Error: %v", err)
 	}
@@ -34,5 +43,16 @@ func main() {
 	err = http.ListenAndServe(cfg.Addr, router)
 	if err != nil && err != http.ErrServerClosed {
 		log.Fatalf("Error: %v", err)
+	}
+}
+
+func GetStore(cfg *etc.Config) (store.DataStore, error) {
+	switch cfg.StoreDriver {
+	case etc.StoreDriverFS:
+		return fs.NewStore(cfg.FSStore.DataDir)
+	case etc.StoreDriverRedis:
+		return redis.NewStore(cfg.RedisStore.RedisURL)
+	default:
+		return nil, nil
 	}
 }
