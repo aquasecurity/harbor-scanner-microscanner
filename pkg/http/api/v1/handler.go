@@ -2,20 +2,33 @@ package v1
 
 import (
 	"encoding/json"
-	"github.com/danielpacak/harbor-scanner-contract/pkg/image"
-	"github.com/danielpacak/harbor-scanner-contract/pkg/model/harbor"
+	"errors"
+	"fmt"
+	"github.com/danielpacak/harbor-scanner-microscanner/pkg/job"
+	"github.com/danielpacak/harbor-scanner-microscanner/pkg/model/harbor"
+	"github.com/danielpacak/harbor-scanner-microscanner/pkg/scanner"
 	"github.com/gorilla/mux"
-	"log"
+	log "github.com/sirupsen/logrus"
 	"net/http"
+	"strings"
+)
+
+const (
+	headerContentType          = "Content-Type"
+	mimeApplicationJSON        = "application/json"
+	mimeTypeHarborScanReport   = "application/vnd.scanner.adapter.vuln.report.harbor.v1+json"
+	mimeTypeMicroScannerReport = "application/vnd.scanner.adapter.vuln.report.raw"
 )
 
 type APIHandler struct {
-	scanner image.Scanner
+	scanner  scanner.Scanner
+	jobQueue job.Queue
 }
 
-func NewAPIHandler(scanner image.Scanner) *APIHandler {
+func NewAPIHandler(scanner scanner.Scanner, jobQueue job.Queue) *APIHandler {
 	return &APIHandler{
-		scanner: scanner,
+		scanner:  scanner,
+		jobQueue: jobQueue,
 	}
 }
 
@@ -23,57 +36,84 @@ func (h *APIHandler) GetVersion(res http.ResponseWriter, req *http.Request) {
 	res.WriteHeader(http.StatusOK)
 }
 
-func (h *APIHandler) CreateScan(res http.ResponseWriter, req *http.Request) {
-	err := h.DoCreateScan(res, req)
+func (h *APIHandler) GetMetadata(res http.ResponseWriter, req *http.Request) {
+	md, err := h.scanner.GetMetadata()
+	if err != nil {
+		http.Error(res, "Internal Server Error", http.StatusInternalServerError)
+	}
+	res.Header().Set("Content-Type", "application/json")
+	err = json.NewEncoder(res).Encode(md)
+	if err != nil {
+		http.Error(res, "Internal Server Error", http.StatusInternalServerError)
+	}
+}
+
+func (h *APIHandler) SubmitScan(res http.ResponseWriter, req *http.Request) {
+	err := h.doCreateScan(res, req)
 	if err != nil {
 		log.Printf("ERROR: %v", err)
 		http.Error(res, "Internal Server Error", http.StatusInternalServerError)
 	}
 }
 
-func (h *APIHandler) DoCreateScan(res http.ResponseWriter, req *http.Request) error {
+func (h *APIHandler) doCreateScan(res http.ResponseWriter, req *http.Request) error {
 	scanRequest := harbor.ScanRequest{}
 	err := json.NewDecoder(req.Body).Decode(&scanRequest)
 	if err != nil {
-		return err
+		return fmt.Errorf("unmarshalling scan request: %v", err)
 	}
 
-	scanResponse, err := h.scanner.Scan(scanRequest)
-	if err != nil {
-		return err
+	if _, err = h.jobQueue.SubmitScanImageJob(scanRequest); err != nil {
+		return fmt.Errorf("submitting scan job: %v", err)
 	}
 
-	res.WriteHeader(http.StatusCreated)
-
-	res.Header().Set("Content-Type", "application/json")
-	err = json.NewEncoder(res).Encode(scanResponse)
-	if err != nil {
-		return err
-	}
+	res.WriteHeader(http.StatusAccepted)
 	return nil
 }
 
-func (h *APIHandler) GetScanResult(res http.ResponseWriter, req *http.Request) {
-	err := h.DoGetScanResult(res, req)
+func (h *APIHandler) GetScanReport(res http.ResponseWriter, req *http.Request) {
+	err := h.doGetScanResult(res, req)
 	if err != nil {
 		log.Printf("ERROR: %v", err)
 		http.Error(res, "Internal Server Error", http.StatusInternalServerError)
 	}
 }
 
-func (h *APIHandler) DoGetScanResult(res http.ResponseWriter, req *http.Request) error {
+func (h *APIHandler) doGetScanResult(res http.ResponseWriter, req *http.Request) error {
 	vars := mux.Vars(req)
-	detailsKey, _ := vars["detailsKey"]
-
-	scanResult, err := h.scanner.GetResult(detailsKey)
-	if err != nil {
-		return err
+	scanRequestID, ok := vars["scanRequestID"]
+	if !ok {
+		return errors.New("scanRequestID must not be nil")
 	}
 
-	res.Header().Set("Content-Type", "application/json")
-	err = json.NewEncoder(res).Encode(scanResult)
-	if err != nil {
-		return err
+	reportMIMEType := strings.TrimSpace(req.Header.Get("Accept"))
+	switch reportMIMEType {
+	case mimeTypeHarborScanReport:
+		scanResult, err := h.scanner.GetScanReportHarbor(scanRequestID)
+		if err != nil {
+			return err
+		}
+
+		res.Header().Set(headerContentType, mimeTypeHarborScanReport)
+		err = json.NewEncoder(res).Encode(scanResult)
+		if err != nil {
+			return err
+		}
+
+	case mimeTypeMicroScannerReport:
+		scanResult, err := h.scanner.GetScanReportRaw(scanRequestID)
+		if err != nil {
+			return err
+		}
+		res.Header().Set(headerContentType, mimeTypeMicroScannerReport)
+		res.Header().Set(headerContentType, mimeApplicationJSON)
+		err = json.NewEncoder(res).Encode(scanResult)
+		if err != nil {
+			return err
+		}
+	default:
+		return fmt.Errorf("unrecognized report type: %s", reportMIMEType)
 	}
+
 	return nil
 }

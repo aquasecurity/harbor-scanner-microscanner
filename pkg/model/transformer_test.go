@@ -9,7 +9,7 @@ import (
 
 func TestTransformer_Transform(t *testing.T) {
 	transformer := NewTransformer()
-	hsr, err := transformer.Transform(&microscanner.ScanResult{
+	hsr, err := transformer.Transform(&microscanner.ScanReport{
 		Resources: []microscanner.ResourceScan{
 			{
 				Resource: microscanner.Resource{

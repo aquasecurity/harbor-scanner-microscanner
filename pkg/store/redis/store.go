@@ -3,79 +3,81 @@ package redis
 import (
 	"encoding/json"
 	"errors"
-	"github.com/danielpacak/harbor-scanner-contract/pkg/model/harbor"
+	"fmt"
+	"github.com/danielpacak/harbor-scanner-microscanner/pkg/etc"
 	"github.com/danielpacak/harbor-scanner-microscanner/pkg/store"
 	"github.com/gomodule/redigo/redis"
 	"github.com/google/uuid"
-	"log"
+	log "github.com/sirupsen/logrus"
 )
 
-// https://itnext.io/storing-go-structs-in-redis-using-rejson-dab7f8fc0053
-// TODO Use connection pool and other connection params
-// TODO Consider using ReJSON
 type redisStore struct {
-	redisURL string
+	namespace string
+	cp        *redis.Pool
 }
 
-type dataBlock struct {
-	ScanResult string
-	CreatedAt  string
-}
-
-func NewStore(redisURL string) (store.DataStore, error) {
-	if redisURL == "" {
-		return nil, errors.New("redisURL must not be nil")
+func NewStore(cfg *etc.RedisStoreConfig) (store.DataStore, error) {
+	if cfg == nil {
+		return nil, errors.New("cfg must not be nil")
 	}
-	return &redisStore{redisURL: redisURL}, nil
+	return &redisStore{
+		namespace: cfg.Namespace,
+		cp: &redis.Pool{
+			MaxActive: cfg.Pool.MaxActive,
+			MaxIdle:   cfg.Pool.MaxIdle,
+			Wait:      true,
+			Dial: func() (redis.Conn, error) {
+				return redis.DialURL(cfg.RedisURL)
+			},
+		},
+	}, nil
 }
 
-func (rs *redisStore) Save(scanID uuid.UUID, hsr *harbor.ScanResult) error {
-	conn, err := redis.DialURL(rs.redisURL)
+func (rs *redisStore) SaveScan(scanID uuid.UUID, scan *store.Scan) error {
+	conn := rs.cp.Get()
+	defer rs.close(conn)
+
+	b, err := json.Marshal(scan)
 	if err != nil {
 		return err
 	}
-	defer conn.Close()
 
-	b, err := json.Marshal(hsr)
+	key := rs.getKeyForScan(scanID)
+	reply, err := conn.Do("SET", key, string(b))
 	if err != nil {
 		return err
 	}
+	log.Debugf("Redis command reply: %v", reply)
 
-	block := dataBlock{
-		ScanResult: string(b),
-		CreatedAt:  "10:30", // set it
-	}
-
-	reply, err := conn.Do("HMSET", redis.Args{scanID.String()}.AddFlat(block)...)
-	if err != nil {
-		return err
-	}
-	log.Printf("reply: %v", reply)
 	return nil
 }
 
-func (rs *redisStore) Get(scanID uuid.UUID) (*harbor.ScanResult, error) {
-	conn, err := redis.DialURL(rs.redisURL)
-	if err != nil {
-		return nil, err
-	}
-	defer conn.Close()
+func (rs *redisStore) GetScan(scanID uuid.UUID) (*store.Scan, error) {
+	conn := rs.cp.Get()
+	defer rs.close(conn)
 
-	value, err := redis.Values(conn.Do("HGETALL", scanID.String()))
-	if err != nil {
-		return nil, err
-	}
-	block := dataBlock{}
-	err = redis.ScanStruct(value, &block)
+	key := rs.getKeyForScan(scanID)
+	value, err := redis.String(conn.Do("GET", key))
 	if err != nil {
 		return nil, err
 	}
 
-	hsr := &harbor.ScanResult{}
-	err = json.Unmarshal([]byte(block.ScanResult), hsr)
+	var scan store.Scan
+	err = json.Unmarshal([]byte(value), &scan)
 	if err != nil {
 		return nil, err
 	}
 
-	return hsr, nil
+	return &scan, nil
+}
+
+func (rs *redisStore) getKeyForScan(scanID uuid.UUID) string {
+	return fmt.Sprintf("%s:scan:%s", rs.namespace, scanID.String())
+}
+
+func (rs *redisStore) close(conn redis.Conn) {
+	err := conn.Close()
+	if err != nil {
+		log.Warnf("closing connection: %v", err)
+	}
 }

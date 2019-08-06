@@ -6,26 +6,23 @@ import (
 )
 
 const (
-	StoreDriverFS    = "fs"
 	StoreDriverRedis = "redis"
 )
 
 type Config struct {
-	Addr         string
+	APIAddr      string
 	DockerHost   string
 	RegistryURL  string
 	StoreDriver  string
-	FSStore      *FSStoreConfig
-	RedisStore   *RedisStoreConfig
 	MicroScanner *MicroScannerConfig
-}
-
-type FSStoreConfig struct {
-	DataDir string
+	RedisStore   *RedisStoreConfig
+	JobQueue     *JobQueueConfig
 }
 
 type RedisStoreConfig struct {
-	RedisURL string
+	RedisURL  string
+	Namespace string
+	Pool      *PoolConfig
 }
 
 type MicroScannerConfig struct {
@@ -33,22 +30,47 @@ type MicroScannerConfig struct {
 	Options string
 }
 
+type JobQueueConfig struct {
+	RedisURL          string
+	Namespace         string
+	WorkerConcurrency uint
+	Pool              *PoolConfig
+}
+
+type PoolConfig struct {
+	MaxActive int
+	MaxIdle   int
+}
+
 func GetConfig() (*Config, error) {
 	cfg := &Config{
-		Addr:        ":8080",
+		APIAddr:     ":8080",
 		DockerHost:  "tcp://localhost:2375",
 		StoreDriver: StoreDriverRedis,
+		MicroScanner: &MicroScannerConfig{
+			Options: "--continue-on-failure",
+		},
 		RedisStore: &RedisStoreConfig{
-			RedisURL: "redis://localhost:6379",
+			RedisURL:  "redis://localhost:6379",
+			Namespace: "harbor.scanner.microscanner:store",
+			Pool: &PoolConfig{
+				MaxActive: 5,
+				MaxIdle:   5,
+			},
 		},
-		FSStore: &FSStoreConfig{
-			DataDir: "/data/scanner",
+		JobQueue: &JobQueueConfig{
+			RedisURL:          "redis://localhost:6379",
+			Namespace:         "harbor.scanner.microscanner:job-queue",
+			WorkerConcurrency: 10,
+			Pool: &PoolConfig{
+				MaxActive: 5,
+				MaxIdle:   5,
+			},
 		},
-		MicroScanner: &MicroScannerConfig{},
 	}
 
-	if addr, ok := os.LookupEnv("SCANNER_ADDR"); ok {
-		cfg.Addr = addr
+	if addr, ok := os.LookupEnv("SCANNER_API_ADDR"); ok {
+		cfg.APIAddr = addr
 	}
 
 	if dockerHost, ok := os.LookupEnv("SCANNER_DOCKER_HOST"); ok {
@@ -73,8 +95,20 @@ func GetConfig() (*Config, error) {
 		cfg.MicroScanner.Options = options
 	}
 
-	if dir, ok := os.LookupEnv("SCANNER_STORE_FS_DATA_DIR"); ok {
-		cfg.FSStore.DataDir = dir
+	if redisURL, ok := os.LookupEnv("SCANNER_STORE_REDIS_URL"); ok {
+		cfg.RedisStore.RedisURL = redisURL
+	}
+
+	if ns, ok := os.LookupEnv("SCANNER_STORE_REDIS_NAMESPACE"); ok {
+		cfg.RedisStore.Namespace = ns
+	}
+
+	if redisURL, ok := os.LookupEnv("SCANNER_JOB_QUEUE_REDIS_URL"); ok {
+		cfg.JobQueue.RedisURL = redisURL
+	}
+
+	if ns, ok := os.LookupEnv("SCANNER_JOB_QUEUE_REDIS_NAMESPACE"); ok {
+		cfg.JobQueue.Namespace = ns
 	}
 
 	return cfg, nil

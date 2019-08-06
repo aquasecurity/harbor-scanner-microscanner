@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"github.com/danielpacak/harbor-scanner-microscanner/pkg/etc"
 	"github.com/danielpacak/harbor-scanner-microscanner/pkg/model/microscanner"
-	"log"
+	log "github.com/sirupsen/logrus"
 	"os"
 	"os/exec"
 	"strings"
@@ -29,21 +29,23 @@ func NewWrapper(cfg *etc.Config) *Wrapper {
 }
 
 // Run runs the microscanner-wrapper.sh script to scan the given image and return ScanResult.
-func (w *Wrapper) Run(image string) (*microscanner.ScanResult, error) {
+func (w *Wrapper) Run(image string) (*microscanner.ScanReport, error) {
 	if image == "" {
 		return nil, errors.New("image must not be nil")
 	}
 
 	stdoutBuffer := bytes.Buffer{}
 
-	log.Printf("Started scanning %s ...", image)
+	log.Debugf("Started scanning %s", image)
 
 	executable, err := exec.LookPath(wrapperScript)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("searching for %s executable: %v", wrapperScript, err)
 	}
+	log.Debugf("Wrapper script executable found at %s", executable)
 
 	cmd := exec.Command(executable, image)
+	// TODO Capture Stderr; if not empty return an error
 	cmd.Stderr = os.Stderr
 	cmd.Stdout = &stdoutBuffer
 	cmd.Env = []string{
@@ -58,14 +60,14 @@ func (w *Wrapper) Run(image string) (*microscanner.ScanResult, error) {
 		return nil, fmt.Errorf("running %s: %v", wrapperScript, err)
 	}
 
-	log.Printf("%s exit code %d", wrapperScript, cmd.ProcessState.ExitCode())
-	log.Printf("Finished scanning %s", image)
+	log.Debugf("%s exit code %d", wrapperScript, cmd.ProcessState.ExitCode())
+	log.Debugf("Finished scanning %s", image)
 	out := w.extractJSON(stdoutBuffer)
 
-	var sr microscanner.ScanResult
-	err = json.Unmarshal([]byte(out), sr)
+	var sr microscanner.ScanReport
+	err = json.Unmarshal([]byte(out), &sr)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("unmarshalling microscanner scan report: %v", err)
 	}
 	return &sr, nil
 }

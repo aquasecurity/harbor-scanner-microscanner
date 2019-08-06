@@ -8,17 +8,19 @@ services:
   scanner:
     image: danielpacak/harbor-scanner-microscanner:poc
     environment:
-      SCANNER_ADDR: ":8080"
-      SCANNER_DOCKER_HOST: "tcp://localhost:2375"
-      SCANNER_MICROSCANNER_TOKEN: "XYZ"
+      SCANNER_API_ADDR: ":8080"
+      SCANNER_DOCKER_HOST: "tcp://dind:2375"
+      SCANNER_MICROSCANNER_TOKEN: ${SCANNER_MICROSCANNER_TOKEN}
+      SCANNER_MICROSCANNER_OPTIONS: "--continue-on-failure"
       SCANNER_STORE_DRIVER: "redis"
-      SCANNER_STORE_REDIS_URL: "redis://localhost:6379"
+      SCANNER_STORE_REDIS_URL: "redis://redis:6379"
+      SCANNER_JOB_QUEUE_REDIS_URL: "redis://redis:6379"
     networks:
       - scanner
     ports:
       - 8080:8080
     volumes:
-      - microscanner-data:/data/scanner
+      - scanner-data:/data/scanner
   dind:
     image: docker:18.05-dind
     privileged: true
@@ -26,6 +28,8 @@ services:
       DOCKER_HOST: "tcp://localhost:2375"
     networks:
       - scanner
+    volumes:
+      - dind-data:/var/lib/docker
   redis:
     image: redis:5.0.5
     ports:
@@ -34,4 +38,5 @@ services:
       - scanner
 
 volumes:
-  microscanner-data:
+  scanner-data:
+  dind-data:

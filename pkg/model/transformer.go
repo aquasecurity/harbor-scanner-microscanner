@@ -1,16 +1,16 @@
 package model
 
 import (
-	"github.com/danielpacak/harbor-scanner-contract/pkg/model/harbor"
+	"github.com/danielpacak/harbor-scanner-microscanner/pkg/model/harbor"
 	"github.com/danielpacak/harbor-scanner-microscanner/pkg/model/microscanner"
-	"log"
+	log "github.com/sirupsen/logrus"
 )
 
 // Transformer wraps the Transform method.
 //
 // Transform transforms Microscanner's scan results model to Harbor's model.
 type Transformer interface {
-	Transform(sr *microscanner.ScanResult) (*harbor.ScanResult, error)
+	Transform(sr *microscanner.ScanReport) (*harbor.VulnerabilitiesReport, error)
 }
 
 type transformer struct {
@@ -20,7 +20,7 @@ func NewTransformer() Transformer {
 	return &transformer{}
 }
 
-func (t *transformer) Transform(sr *microscanner.ScanResult) (*harbor.ScanResult, error) {
+func (t *transformer) Transform(sr *microscanner.ScanReport) (*harbor.VulnerabilitiesReport, error) {
 	var items []*harbor.VulnerabilityItem
 
 	for _, resourceScan := range sr.Resources {
@@ -31,17 +31,16 @@ func (t *transformer) Transform(sr *microscanner.ScanResult) (*harbor.ScanResult
 				Pkg:         resourceScan.Resource.Name,
 				Version:     resourceScan.Resource.Version,
 				Description: vln.Description,
-				Link:        vln.NVDURL,
+				Links:       []string{vln.NVDURL},
 				Fixed:       vln.FixVersion,
 			})
 		}
 	}
 
-	severity, overview := t.toComponentsOverview(sr)
+	severity := t.toComponentsOverview(sr)
 
-	return &harbor.ScanResult{
+	return &harbor.VulnerabilitiesReport{
 		Severity:        severity,
-		Overview:        overview,
 		Vulnerabilities: items,
 	}, nil
 }
@@ -55,12 +54,12 @@ func (t *transformer) toHarborSeverity(severity string) harbor.Severity {
 	case "low":
 		return harbor.SevLow
 	default:
-		log.Printf("Unknown microscanner severity `%s`", severity)
+		log.Warnf("Unknown microscanner severity `%s`", severity)
 		return harbor.SevUnknown
 	}
 }
 
-func (t *transformer) toComponentsOverview(sr *microscanner.ScanResult) (harbor.Severity, *harbor.ComponentsOverview) {
+func (t *transformer) toComponentsOverview(sr *microscanner.ScanReport) harbor.Severity {
 	overallSev := harbor.SevNone
 	total := 0
 	sevToCount := map[harbor.Severity]int{
@@ -82,16 +81,5 @@ func (t *transformer) toComponentsOverview(sr *microscanner.ScanResult) (harbor.
 		}
 	}
 
-	var summary []*harbor.ComponentsOverviewEntry
-	for k, v := range sevToCount {
-		summary = append(summary, &harbor.ComponentsOverviewEntry{
-			Sev:   int(k),
-			Count: v,
-		})
-	}
-
-	return overallSev, &harbor.ComponentsOverview{
-		Total:   total,
-		Summary: summary,
-	}
+	return overallSev
 }
