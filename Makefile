@@ -1,7 +1,7 @@
 SOURCES := $(shell find . -name '*.go')
 BINARY := scanner-microscanner
 IMAGE_TAG := poc
-IMAGE := danielpacak/harbor-scanner-microscanner:$(IMAGE_TAG)
+IMAGE := aquasecurity/harbor-scanner-microscanner:$(IMAGE_TAG)
 
 build: $(BINARY)
 

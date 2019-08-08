@@ -1,8 +1,8 @@
 package scanner
 
 import (
-	"github.com/danielpacak/harbor-scanner-microscanner/pkg/model/harbor"
-	"github.com/danielpacak/harbor-scanner-microscanner/pkg/model/microscanner"
+	"github.com/aquasecurity/harbor-scanner-microscanner/pkg/model/harbor"
+	"github.com/aquasecurity/harbor-scanner-microscanner/pkg/model/microscanner"
 )
 
 // Scanner defines methods for scanning artifacts.

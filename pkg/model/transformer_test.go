@@ -1,7 +1,7 @@
 package model
 
 import (
-	"github.com/danielpacak/harbor-scanner-microscanner/pkg/model/microscanner"
+	"github.com/aquasecurity/harbor-scanner-microscanner/pkg/model/microscanner"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"testing"

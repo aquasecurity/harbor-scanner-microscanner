@@ -1,4 +1,4 @@
-module github.com/danielpacak/harbor-scanner-microscanner
+module github.com/aquasecurity/harbor-scanner-microscanner
 
 go 1.12
 

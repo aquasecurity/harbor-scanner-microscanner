@@ -3,12 +3,12 @@ package microscanner
 import (
 	"errors"
 	"fmt"
-	"github.com/danielpacak/harbor-scanner-microscanner/pkg/etc"
-	"github.com/danielpacak/harbor-scanner-microscanner/pkg/model"
-	"github.com/danielpacak/harbor-scanner-microscanner/pkg/model/harbor"
-	"github.com/danielpacak/harbor-scanner-microscanner/pkg/model/microscanner"
-	"github.com/danielpacak/harbor-scanner-microscanner/pkg/scanner"
-	"github.com/danielpacak/harbor-scanner-microscanner/pkg/store"
+	"github.com/aquasecurity/harbor-scanner-microscanner/pkg/etc"
+	"github.com/aquasecurity/harbor-scanner-microscanner/pkg/model"
+	"github.com/aquasecurity/harbor-scanner-microscanner/pkg/model/harbor"
+	"github.com/aquasecurity/harbor-scanner-microscanner/pkg/model/microscanner"
+	"github.com/aquasecurity/harbor-scanner-microscanner/pkg/scanner"
+	"github.com/aquasecurity/harbor-scanner-microscanner/pkg/store"
 	"github.com/google/uuid"
 	log "github.com/sirupsen/logrus"
 )
