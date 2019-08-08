@@ -1,6 +1,6 @@
 package microscanner
 
-type ScanResult struct {
+type ScanReport struct {
 	Digest    string         `json:"digest"`
 	OS        string         `json:"os"`
 	Version   string         `json:"version"`

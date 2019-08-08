@@ -6,7 +6,7 @@ IMAGE := danielpacak/harbor-scanner-microscanner:$(IMAGE_TAG)
 build: $(BINARY)
 
 test: build
-	GO111MODULE=on go test -v -short ./...
+	GO111MODULE=on go test -v -short -race -coverprofile=coverage.txt -covermode=atomic ./...
 
 test-integration: build
 	GO111MODULE=on go test -v ./...
@@ -22,3 +22,8 @@ compose-up: container
 
 compose-down:
 	docker-compose -f compose/docker-compose.yaml -p microscanner down
+
+compose-clean:
+	docker container prune -f \
+	&& docker volume prune -f \
+	&& docker network prune -f

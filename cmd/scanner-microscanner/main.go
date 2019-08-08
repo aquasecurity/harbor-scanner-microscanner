@@ -1,17 +1,25 @@
 package main
 
 import (
+	"fmt"
 	"github.com/danielpacak/harbor-scanner-microscanner/pkg/etc"
 	"github.com/danielpacak/harbor-scanner-microscanner/pkg/http/api/v1"
+	"github.com/danielpacak/harbor-scanner-microscanner/pkg/job/work"
 	"github.com/danielpacak/harbor-scanner-microscanner/pkg/model"
 	"github.com/danielpacak/harbor-scanner-microscanner/pkg/scanner/microscanner"
 	"github.com/danielpacak/harbor-scanner-microscanner/pkg/store"
-	"github.com/danielpacak/harbor-scanner-microscanner/pkg/store/fs"
 	"github.com/danielpacak/harbor-scanner-microscanner/pkg/store/redis"
 	"github.com/gorilla/mux"
-	"log"
+	log "github.com/sirupsen/logrus"
 	"net/http"
+	"os"
 )
+
+func init() {
+	log.SetOutput(os.Stdout)
+	log.SetLevel(log.DebugLevel)
+	log.SetReportCaller(false)
+}
 
 func main() {
 	cfg, err := etc.GetConfig()
@@ -19,7 +27,7 @@ func main() {
 		log.Fatalf("Error: %v", err)
 	}
 
-	log.Printf("Starting harbor-scanner-microscanner with config %v", cfg)
+	log.Infof("Starting harbor-scanner-microscanner with config %v", cfg)
 
 	dataStore, err := GetStore(cfg)
 	if err != nil {
@@ -31,16 +39,23 @@ func main() {
 		log.Fatalf("Error: %v", err)
 	}
 
-	apiHandler := v1.NewAPIHandler(scanner)
+	jobQueue, err := work.NewWorkQueue(cfg, scanner)
+	if err != nil {
+		log.Fatalf("Error: %v", err)
+	}
+	jobQueue.Start()
+
+	apiHandler := v1.NewAPIHandler(scanner, jobQueue)
 
 	router := mux.NewRouter()
 	v1Router := router.PathPrefix("/api/v1").Subrouter()
 
-	v1Router.Methods("GET").Path("").HandlerFunc(apiHandler.GetVersion)
-	v1Router.Methods("POST").Path("/scan").HandlerFunc(apiHandler.CreateScan)
-	v1Router.Methods("GET").Path("/scan/{detailsKey}").HandlerFunc(apiHandler.GetScanResult)
+	v1Router.Methods(http.MethodGet).Path("").HandlerFunc(apiHandler.GetVersion)
+	v1Router.Methods(http.MethodGet).Path("/metadata").HandlerFunc(apiHandler.GetMetadata)
+	v1Router.Methods(http.MethodPost).Path("/scan").HandlerFunc(apiHandler.SubmitScan)
+	v1Router.Methods(http.MethodGet).Path("/scan/{scanRequestID}/report").HandlerFunc(apiHandler.GetScanReport)
 
-	err = http.ListenAndServe(cfg.Addr, router)
+	err = http.ListenAndServe(cfg.APIAddr, router)
 	if err != nil && err != http.ErrServerClosed {
 		log.Fatalf("Error: %v", err)
 	}
@@ -48,11 +63,9 @@ func main() {
 
 func GetStore(cfg *etc.Config) (store.DataStore, error) {
 	switch cfg.StoreDriver {
-	case etc.StoreDriverFS:
-		return fs.NewStore(cfg.FSStore.DataDir)
 	case etc.StoreDriverRedis:
-		return redis.NewStore(cfg.RedisStore.RedisURL)
+		return redis.NewStore(cfg.RedisStore)
 	default:
-		return nil, nil
+		return nil, fmt.Errorf("unrecognized store type: %s", cfg.StoreDriver)
 	}
 }
