@@ -6,7 +6,7 @@ networks:
 
 services:
   scanner:
-    image: aquasecurity/harbor-scanner-microscanner:poc
+    image: aquasec/harbor-scanner-microscanner:poc
     environment:
       SCANNER_API_ADDR: ":8080"
       SCANNER_DOCKER_HOST: "tcp://dind:2375"
