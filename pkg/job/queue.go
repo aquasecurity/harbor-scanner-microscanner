@@ -1,6 +1,6 @@
 package job
 
-import "github.com/danielpacak/harbor-scanner-microscanner/pkg/model/harbor"
+import "github.com/aquasecurity/harbor-scanner-microscanner/pkg/model/harbor"
 
 type Queue interface {
 	Start()
