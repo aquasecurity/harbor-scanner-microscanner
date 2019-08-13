@@ -26,7 +26,7 @@ func TestRedisStore_ScanCRUD(t *testing.T) {
 
 	id := uuid.New()
 	err = dataStore.SaveScan(id, &store.Scan{
-		HarborVulnerabilitiesReport: &harbor.VulnerabilitiesReport{
+		HarborVulnerabilityReport: &harbor.VulnerabilityReport{
 			Severity:        harbor.SevHigh,
 			Vulnerabilities: []*harbor.VulnerabilityItem{},
 		},
@@ -38,5 +38,9 @@ func TestRedisStore_ScanCRUD(t *testing.T) {
 
 	scan, err := dataStore.GetScan(id)
 	require.NoError(t, err)
-	t.Logf("scan: %v", scan)
+	require.NotNil(t, scan)
+
+	scan, err = dataStore.GetScan(uuid.New())
+	require.NoError(t, err)
+	require.Nil(t, scan)
 }

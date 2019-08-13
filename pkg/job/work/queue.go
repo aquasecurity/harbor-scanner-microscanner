@@ -61,7 +61,7 @@ func (wq *workQueue) Stop() {
 	wq.workerPool.Stop()
 }
 
-func (wq *workQueue) SubmitScanImageJob(sr harbor.ScanRequest) (string, error) {
+func (wq *workQueue) EnqueueScanJob(sr harbor.ScanRequest) (string, error) {
 	log.Debugf("Submitting scan image job %v", sr)
 
 	b, err := json.Marshal(sr)
@@ -98,7 +98,7 @@ func (wq *workQueue) ScanImage(job *work.Job) error {
 		return err
 	}
 
-	err = sc.SubmitScan(sr)
+	err = sc.Scan(sr)
 	if err != nil {
 		return err
 	}

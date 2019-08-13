@@ -8,7 +8,7 @@ import (
 // Scanner defines methods for scanning artifacts.
 type Scanner interface {
 	GetMetadata() (*harbor.ScannerMetadata, error)
-	SubmitScan(req harbor.ScanRequest) error
-	GetScanReportHarbor(scanRequestID string) (*harbor.VulnerabilitiesReport, error)
-	GetScanReportRaw(scanRequestID string) (*microscanner.ScanReport, error)
+	Scan(req harbor.ScanRequest) error
+	GetHarborVulnerabilityReport(scanRequestID string) (*harbor.VulnerabilityReport, error)
+	GetMicroScannerReport(scanRequestID string) (*microscanner.ScanReport, error)
 }

@@ -5,7 +5,7 @@ type ScanReport struct {
 	OS        string         `json:"os"`
 	Version   string         `json:"version"`
 	Resources []ResourceScan `json:"resources"`
-	Summary   Summary        `json:"vulnerability_summary"`
+	Summary   *Summary       `json:"vulnerability_summary"`
 }
 
 type ResourceScan struct {

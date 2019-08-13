@@ -65,9 +65,9 @@ See [Pluggable Image Vulnerability Scanning Proposal][image-vulnerability-scanni
 | `SCANNER_STORE_REDIS_POOL_MAX_IDLE`   | 5 | The max number of idle connections in the pool for a redis store. |
 | `SCANNER_JOB_QUEUE_REDIS_URL`         | `redis://localhost:6379`                | Redis server URL in Redis URI scheme for a jobs queue. |
 | `SCANNER_JOB_QUEUE_REDIS_NAMESPACE`   | `harbor.scanner.microscanner:job-queue` | A namespace for keys in  a jobs queue. |
-| `SCANNER_JOB_QUEUE_REDIS_POOL_MAX_ACTIVE` | 5  | The max number of connections allocated by the pool for a jobs queue. |
-| `SCANNER_JOB_QUEUE_REDIS_POOL_MAX_IDLE`   | 5  | The max number of idle connections in the pool for a jobs queue. |
-| `SCANNER_JOB_QUEUE_WORKER_CONCURRENCY`    | 10 | The number of workers to spin-up for a jobs queue. |
+| `SCANNER_JOB_QUEUE_REDIS_POOL_MAX_ACTIVE` | 5 | The max number of connections allocated by the pool for a jobs queue. |
+| `SCANNER_JOB_QUEUE_REDIS_POOL_MAX_IDLE`   | 5 | The max number of idle connections in the pool for a jobs queue. |
+| `SCANNER_JOB_QUEUE_WORKER_CONCURRENCY`    | 1 | The number of workers to spin-up for a jobs queue. |
 
 ## Run with Docker
 

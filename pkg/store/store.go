@@ -17,6 +17,7 @@ type DataStore interface {
 
 // Scan represents a scan status and associated data.
 type Scan struct {
-	HarborVulnerabilitiesReport *harbor.VulnerabilitiesReport `json:"harbor_vulnerabilities_report"`
-	MicroScannerReport          *microscanner.ScanReport      `json:"micro_scanner_report"`
+	JobID                     string                      `json:"job_id"`
+	HarborVulnerabilityReport *harbor.VulnerabilityReport `json:"harbor_vulnerability_report"`
+	MicroScannerReport        *microscanner.ScanReport    `json:"micro_scanner_report"`
 }

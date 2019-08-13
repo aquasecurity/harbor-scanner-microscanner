@@ -9,7 +9,6 @@ import (
 	"github.com/aquasecurity/harbor-scanner-microscanner/pkg/scanner/microscanner"
 	"github.com/aquasecurity/harbor-scanner-microscanner/pkg/store"
 	"github.com/aquasecurity/harbor-scanner-microscanner/pkg/store/redis"
-	"github.com/gorilla/mux"
 	log "github.com/sirupsen/logrus"
 	"net/http"
 	"os"
@@ -48,17 +47,9 @@ func main() {
 	}
 	jobQueue.Start()
 
-	apiHandler := v1.NewAPIHandler(scanner, jobQueue)
+	apiHandler := v1.NewAPIHandler(scanner, jobQueue, dataStore)
 
-	router := mux.NewRouter()
-	v1Router := router.PathPrefix("/api/v1").Subrouter()
-
-	v1Router.Methods(http.MethodGet).Path("").HandlerFunc(apiHandler.GetVersion)
-	v1Router.Methods(http.MethodGet).Path("/metadata").HandlerFunc(apiHandler.GetMetadata)
-	v1Router.Methods(http.MethodPost).Path("/scan").HandlerFunc(apiHandler.SubmitScan)
-	v1Router.Methods(http.MethodGet).Path("/scan/{scanRequestID}/report").HandlerFunc(apiHandler.GetScanReport)
-
-	err = http.ListenAndServe(cfg.APIAddr, router)
+	err = http.ListenAndServe(cfg.APIAddr, apiHandler)
 	if err != nil && err != http.ErrServerClosed {
 		log.Fatalf("Error: %v", err)
 	}

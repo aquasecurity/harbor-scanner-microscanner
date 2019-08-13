@@ -61,7 +61,7 @@ func GetConfig() (*Config, error) {
 		JobQueue: &JobQueueConfig{
 			RedisURL:          "redis://localhost:6379",
 			Namespace:         "harbor.scanner.microscanner:job-queue",
-			WorkerConcurrency: 10,
+			WorkerConcurrency: 1,
 			Pool: &PoolConfig{
 				MaxActive: 5,
 				MaxIdle:   5,

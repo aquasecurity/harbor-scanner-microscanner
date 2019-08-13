@@ -48,7 +48,7 @@ func (s *imageScanner) GetMetadata() (*harbor.ScannerMetadata, error) {
 	}, nil
 }
 
-func (s *imageScanner) SubmitScan(req harbor.ScanRequest) error {
+func (s *imageScanner) Scan(req harbor.ScanRequest) error {
 	registryURL := req.RegistryURL
 	if s.cfg.RegistryURL != "" {
 		log.Debugf("Overwriting registry URL %s with %s", req.RegistryURL, s.cfg.RegistryURL)
@@ -72,8 +72,8 @@ func (s *imageScanner) SubmitScan(req harbor.ScanRequest) error {
 	}
 
 	err = s.store.SaveScan(scanID, &store.Scan{
-		MicroScannerReport:          sr,
-		HarborVulnerabilitiesReport: hvr,
+		MicroScannerReport:        sr,
+		HarborVulnerabilityReport: hvr,
 	})
 
 	if err != nil {
@@ -82,9 +82,9 @@ func (s *imageScanner) SubmitScan(req harbor.ScanRequest) error {
 	return nil
 }
 
-func (s *imageScanner) GetScanReportHarbor(scanRequestID string) (*harbor.VulnerabilitiesReport, error) {
+func (s *imageScanner) GetHarborVulnerabilityReport(scanRequestID string) (*harbor.VulnerabilityReport, error) {
 	if scanRequestID == "" {
-		return nil, errors.New("scanRequestID must not be nil")
+		return nil, errors.New("scanRequestID must not be blank")
 	}
 
 	scanID, err := uuid.Parse(scanRequestID)
@@ -96,12 +96,12 @@ func (s *imageScanner) GetScanReportHarbor(scanRequestID string) (*harbor.Vulner
 	if err != nil {
 		return nil, err
 	}
-	return scan.HarborVulnerabilitiesReport, nil
+	return scan.HarborVulnerabilityReport, nil
 }
 
-func (s *imageScanner) GetScanReportRaw(scanRequestID string) (*microscanner.ScanReport, error) {
+func (s *imageScanner) GetMicroScannerReport(scanRequestID string) (*microscanner.ScanReport, error) {
 	if scanRequestID == "" {
-		return nil, errors.New("scanRequestID must not be nil")
+		return nil, errors.New("scanRequestID must not be blank")
 	}
 
 	scanID, err := uuid.Parse(scanRequestID)

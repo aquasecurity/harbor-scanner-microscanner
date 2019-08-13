@@ -10,7 +10,7 @@ SCAN_REQUEST_ID=$(uuidgen | tr "[:upper:]" "[:lower:]")
 # 2. Submit the scan request:
 
 curl http://localhost:8080/api/v1/scan \
--H 'Content-Type: application/json; charset=utf-8' \
+-H 'Content-Type: application/vnd.scanner.adapter.scan.request+json; version=1.0' \
 -d @- << EOF
 {
   "id": "${SCAN_REQUEST_ID}",
@@ -21,5 +21,5 @@ curl http://localhost:8080/api/v1/scan \
 EOF
 
 # 3. Get scan report:
-echo "curl -H 'Accept: application/vnd.scanner.adapter.vuln.report.harbor.v1+json' http://localhost:8080/api/v1/scan/${SCAN_REQUEST_ID}/report"
+echo "curl -H 'Accept: application/vnd.scanner.adapter.vuln.report.harbor+json; version=1.0' http://localhost:8080/api/v1/scan/${SCAN_REQUEST_ID}/report"
 echo "curl -H 'Accept: application/vnd.scanner.adapter.vuln.report.raw' http://localhost:8080/api/v1/scan/${SCAN_REQUEST_ID}/report"

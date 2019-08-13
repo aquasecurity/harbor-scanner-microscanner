@@ -59,6 +59,9 @@ func (rs *redisStore) GetScan(scanID uuid.UUID) (*store.Scan, error) {
 	key := rs.getKeyForScan(scanID)
 	value, err := redis.String(conn.Do("GET", key))
 	if err != nil {
+		if err == redis.ErrNil {
+			return nil, nil
+		}
 		return nil, err
 	}
 
