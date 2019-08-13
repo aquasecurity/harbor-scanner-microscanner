@@ -29,12 +29,15 @@ func main() {
 
 	log.Infof("Starting harbor-scanner-microscanner with config %v", cfg)
 
-	dataStore, err := GetStore(cfg)
+	wrapper := microscanner.NewWrapper(cfg.MicroScanner)
+	transformer := model.NewTransformer()
+
+	dataStore, err := GetDataStore(cfg)
 	if err != nil {
 		log.Fatalf("Error: %v", err)
 	}
 
-	scanner, err := microscanner.NewScanner(cfg, model.NewTransformer(), dataStore)
+	scanner, err := microscanner.NewScanner(cfg, wrapper, transformer, dataStore)
 	if err != nil {
 		log.Fatalf("Error: %v", err)
 	}
@@ -61,7 +64,7 @@ func main() {
 	}
 }
 
-func GetStore(cfg *etc.Config) (store.DataStore, error) {
+func GetDataStore(cfg *etc.Config) (store.DataStore, error) {
 	switch cfg.StoreDriver {
 	case etc.StoreDriverRedis:
 		return redis.NewStore(cfg.RedisStore)

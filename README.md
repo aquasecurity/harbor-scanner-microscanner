@@ -57,7 +57,7 @@ See [Pluggable Image Vulnerability Scanning Proposal][image-vulnerability-scanni
 | `SCANNER_API_ADDR`              | `:8080`                  | Binding address for the API HTTP server. |
 | `SCANNER_DOCKER_HOST`           | `tcp://localhost:2375`   | Docker Engine URL |
 | `SCANNER_MICROSCANNER_TOKEN`    |                          | A token issued by Aqua Security for using the MicroScanner. |
-| `SCANNER_MICROSCANNER_OPTIONS`  | `--continue-on-failure`  | Additional options passed as CLI arguments to the MicroScanner. |
+| `SCANNER_MICROSCANNER_OPTIONS`  | `--continue-on-failure --full-output` | Additional options passed as CLI arguments to the MicroScanner. |
 | `SCANNER_STORE_DRIVER`          | `redis`                  | A driver used to store scan requests and reports. |
 | `SCANNER_STORE_REDIS_URL`       | `redis://localhost:6379`            | Redis server URL in Redis URI scheme for a redis store. |
 | `SCANNER_STORE_REDIS_NAMESPACE` | `harbor.scanner.microscanner:store` | A namespace for keys in a redis store. |
@@ -67,9 +67,22 @@ See [Pluggable Image Vulnerability Scanning Proposal][image-vulnerability-scanni
 | `SCANNER_JOB_QUEUE_REDIS_NAMESPACE`   | `harbor.scanner.microscanner:job-queue` | A namespace for keys in  a jobs queue. |
 | `SCANNER_JOB_QUEUE_REDIS_POOL_MAX_ACTIVE` | 5  | The max number of connections allocated by the pool for a jobs queue. |
 | `SCANNER_JOB_QUEUE_REDIS_POOL_MAX_IDLE`   | 5  | The max number of idle connections in the pool for a jobs queue. |
-| `SCANNER_JOB_QUEUE_WORKER_CONCURRENCY`    | 10 | The number of workers to spin-up for a job queue. |
+| `SCANNER_JOB_QUEUE_WORKER_CONCURRENCY`    | 10 | The number of workers to spin-up for a jobs queue. |
+
+## Run with Docker
+
+```
+export SCANNER_MICROSCANNER_TOKEN="***"
+```
+
+```
+make compose-up
+make compose-down
+```
 
 ## Deploy to minikube
+
+> The following instructions need some update.
 
 ```
 eval $(minikube docker-env -p harbor)
@@ -101,17 +114,6 @@ DOCKER_HOST=tcp://localhost:2375 docker pull core.harbor.domain/library/mongo:3.
 ```
 kubectl port-forward service/harbor-scanner-microscanner 8080:8080 &> /dev/null &
 curl -H http://localhost:8080/api/v1/
-```
-
-## Run with Docker
-
-```
-export SCANNER_MICROSCANNER_TOKEN="***"
-```
-
-```
-make compose-up
-make compose-down
 ```
 
 ## References

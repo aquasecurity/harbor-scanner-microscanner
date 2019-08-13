@@ -15,17 +15,17 @@ import (
 
 type imageScanner struct {
 	cfg         *etc.Config
-	wrapper     *Wrapper
+	wrapper     Wrapper
 	transformer model.Transformer
 	store       store.DataStore
 }
 
-func NewScanner(cfg *etc.Config, transformer model.Transformer, store store.DataStore) (scanner.Scanner, error) {
+func NewScanner(cfg *etc.Config, wrapper Wrapper, transformer model.Transformer, store store.DataStore) (scanner.Scanner, error) {
 	return &imageScanner{
 		cfg:         cfg,
 		transformer: transformer,
 		store:       store,
-		wrapper:     NewWrapper(cfg),
+		wrapper:     wrapper,
 	}, nil
 }
 

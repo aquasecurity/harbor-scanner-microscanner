@@ -11,7 +11,6 @@ const (
 
 type Config struct {
 	APIAddr      string
-	DockerHost   string
 	RegistryURL  string
 	StoreDriver  string
 	MicroScanner *MicroScannerConfig
@@ -26,8 +25,9 @@ type RedisStoreConfig struct {
 }
 
 type MicroScannerConfig struct {
-	Token   string
-	Options string
+	DockerHost string
+	Token      string
+	Options    string
 }
 
 type JobQueueConfig struct {
@@ -45,10 +45,10 @@ type PoolConfig struct {
 func GetConfig() (*Config, error) {
 	cfg := &Config{
 		APIAddr:     ":8080",
-		DockerHost:  "tcp://localhost:2375",
 		StoreDriver: StoreDriverRedis,
 		MicroScanner: &MicroScannerConfig{
-			Options: "--continue-on-failure",
+			DockerHost: "tcp://localhost:2375",
+			Options:    "--continue-on-failure --full-output",
 		},
 		RedisStore: &RedisStoreConfig{
 			RedisURL:  "redis://localhost:6379",
@@ -74,7 +74,7 @@ func GetConfig() (*Config, error) {
 	}
 
 	if dockerHost, ok := os.LookupEnv("SCANNER_DOCKER_HOST"); ok {
-		cfg.DockerHost = dockerHost
+		cfg.MicroScanner.DockerHost = dockerHost
 	}
 
 	if registryURL, ok := os.LookupEnv("SCANNER_REGISTRY_URL"); ok {
