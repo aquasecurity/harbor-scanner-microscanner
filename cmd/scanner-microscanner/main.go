@@ -5,8 +5,8 @@ import (
 	"github.com/aquasecurity/harbor-scanner-microscanner/pkg/etc"
 	"github.com/aquasecurity/harbor-scanner-microscanner/pkg/http/api/v1"
 	"github.com/aquasecurity/harbor-scanner-microscanner/pkg/job/work"
+	"github.com/aquasecurity/harbor-scanner-microscanner/pkg/microscanner"
 	"github.com/aquasecurity/harbor-scanner-microscanner/pkg/model"
-	"github.com/aquasecurity/harbor-scanner-microscanner/pkg/scanner/microscanner"
 	"github.com/aquasecurity/harbor-scanner-microscanner/pkg/store"
 	"github.com/aquasecurity/harbor-scanner-microscanner/pkg/store/redis"
 	log "github.com/sirupsen/logrus"
@@ -36,18 +36,18 @@ func main() {
 		log.Fatalf("Error: %v", err)
 	}
 
-	scanner, err := microscanner.NewScanner(cfg, wrapper, transformer, dataStore)
+	scanner, err := microscanner.NewScanner(wrapper, transformer, dataStore)
 	if err != nil {
 		log.Fatalf("Error: %v", err)
 	}
 
-	jobQueue, err := work.NewWorkQueue(cfg, scanner)
+	jobQueue, err := work.NewWorkQueue(cfg.JobQueue, scanner, dataStore)
 	if err != nil {
 		log.Fatalf("Error: %v", err)
 	}
 	jobQueue.Start()
 
-	apiHandler := v1.NewAPIHandler(scanner, jobQueue, dataStore)
+	apiHandler := v1.NewAPIHandler(jobQueue, dataStore)
 
 	err = http.ListenAndServe(cfg.APIAddr, apiHandler)
 	if err != nil && err != http.ErrServerClosed {

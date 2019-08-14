@@ -21,5 +21,5 @@ curl http://localhost:8080/api/v1/scan \
 EOF
 
 # 3. Get scan report:
-echo "curl -H 'Accept: application/vnd.scanner.adapter.vuln.report.harbor+json; version=1.0' http://localhost:8080/api/v1/scan/${SCAN_REQUEST_ID}/report"
-echo "curl -H 'Accept: application/vnd.scanner.adapter.vuln.report.raw' http://localhost:8080/api/v1/scan/${SCAN_REQUEST_ID}/report"
+echo "curl -v -H 'Accept: application/vnd.scanner.adapter.vuln.report.harbor+json; version=1.0' http://localhost:8080/api/v1/scan/${SCAN_REQUEST_ID}/report"
+echo "curl -v -H 'Accept: application/vnd.scanner.adapter.vuln.report.raw' http://localhost:8080/api/v1/scan/${SCAN_REQUEST_ID}/report"
