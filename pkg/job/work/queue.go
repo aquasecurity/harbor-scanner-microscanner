@@ -46,7 +46,7 @@ func NewJobQueue(cfg *etc.JobQueueConfig, scanner microscanner.Scanner, dataStor
 		return n()
 	})
 
-	workerPool.JobWithOptions(jobScanImage, work.JobOptions{Priority: 1, MaxFails: 1}, (*workQueue).ScanImage)
+	workerPool.JobWithOptions(jobScanImage, work.JobOptions{Priority: 1, MaxFails: 1}, (*workQueue).ExecuteScanJob)
 
 	return &workQueue{
 		redisPool:  redisPool,
@@ -102,9 +102,9 @@ func (wq *workQueue) GetScanJob(scanID uuid.UUID) (*job.ScanJob, error) {
 	return wq.dataStore.GetScanJob(scanID)
 }
 
-func (wq *workQueue) ScanImage(job *work.Job) error {
+func (wq *workQueue) ExecuteScanJob(job *work.Job) error {
 	log.Debugf("Scan job started: %v", job.ID)
-	sc, ok := job.Args[scannerArg].(microscanner.Scanner)
+	scanner, ok := job.Args[scannerArg].(microscanner.Scanner)
 	if !ok {
 		return fmt.Errorf("getting scanner from job args")
 	}
@@ -120,7 +120,7 @@ func (wq *workQueue) ScanImage(job *work.Job) error {
 		return err
 	}
 
-	err = sc.Scan(sr)
+	err = scanner.Scan(sr)
 	if err != nil {
 		return err
 	}
