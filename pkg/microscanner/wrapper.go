@@ -16,6 +16,9 @@ const (
 	wrapperScript = "microscanner-wrapper.sh"
 )
 
+// Wrapper wraps the Run method.
+//
+// Run runs a MicroScanner wrapper script and parses the output report to ScanReport.
 type Wrapper interface {
 	Run(image string) (*microscanner.ScanReport, error)
 }

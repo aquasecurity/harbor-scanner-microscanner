@@ -3,92 +3,18 @@ package v1
 import (
 	"fmt"
 	"github.com/aquasecurity/harbor-scanner-microscanner/pkg/job"
+	"github.com/aquasecurity/harbor-scanner-microscanner/pkg/mocks"
 	"github.com/aquasecurity/harbor-scanner-microscanner/pkg/model/harbor"
 	"github.com/aquasecurity/harbor-scanner-microscanner/pkg/model/microscanner"
 	"github.com/aquasecurity/harbor-scanner-microscanner/pkg/store"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 )
 
-type scannerMock struct {
-	mock.Mock
-}
-
-func (m *scannerMock) GetMetadata() (*harbor.ScannerMetadata, error) {
-	args := m.Called()
-	return args.Get(0).(*harbor.ScannerMetadata), args.Error(1)
-}
-
-func (m *scannerMock) Scan(req harbor.ScanRequest) error {
-	args := m.Called(req)
-	return args.Error(0)
-}
-
-func (m *scannerMock) GetHarborVulnerabilityReport(scanRequestID string) (*harbor.VulnerabilityReport, error) {
-	args := m.Called(scanRequestID)
-	return args.Get(0).(*harbor.VulnerabilityReport), args.Error(1)
-}
-
-func (m *scannerMock) GetMicroScannerReport(scanRequestID string) (*microscanner.ScanReport, error) {
-	args := m.Called(scanRequestID)
-	return args.Get(0).(*microscanner.ScanReport), args.Error(1)
-}
-
-type jobQueueMock struct {
-	mock.Mock
-}
-
-func (m *jobQueueMock) Start() {
-	m.Called()
-}
-
-func (m *jobQueueMock) Stop() {
-	m.Called()
-}
-
-func (m *jobQueueMock) EnqueueScanJob(sr harbor.ScanRequest) (*job.ScanJob, error) {
-	args := m.Called(sr)
-	return args.Get(0).(*job.ScanJob), args.Error(1)
-}
-
-func (m *jobQueueMock) GetScanJob(scanRequestID uuid.UUID) (*job.ScanJob, error) {
-	args := m.Called(scanRequestID)
-	return args.Get(0).(*job.ScanJob), args.Error(1)
-}
-
-type dataStoreMock struct {
-	mock.Mock
-}
-
-func (m *dataStoreMock) SaveScanJob(scanID uuid.UUID, scanJob *job.ScanJob) error {
-	args := m.Called(scanID, scanJob)
-	return args.Error(0)
-}
-
-func (m *dataStoreMock) GetScanJob(scanID uuid.UUID) (*job.ScanJob, error) {
-	args := m.Called(scanID)
-	return args.Get(0).(*job.ScanJob), args.Error(1)
-}
-
-func (m *dataStoreMock) UpdateJobStatus(scanID uuid.UUID, currentStatus, newStatus job.ScanJobStatus) error {
-	args := m.Called(scanID, currentStatus, newStatus)
-	return args.Error(0)
-}
-
-func (m *dataStoreMock) SaveScanReports(scanID uuid.UUID, scan *store.ScanReports) error {
-	args := m.Called(scanID)
-	return args.Error(0)
-}
-
-func (m *dataStoreMock) GetScanReports(scanID uuid.UUID) (*store.ScanReports, error) {
-	args := m.Called(scanID)
-	return args.Get(0).(*store.ScanReports), args.Error(1)
-}
 
 type Request struct {
 	Method  string
@@ -109,9 +35,9 @@ type Expectation struct {
 
 func TestRequestHandler_GetHealth(t *testing.T) {
 	// given
-	scanner := new(scannerMock)
-	jobQueue := new(jobQueueMock)
-	dataStore := new(dataStoreMock)
+	scanner := mocks.NewScanner()
+	jobQueue := mocks.NewJobQueue()
+	dataStore := mocks.NewDataStore()
 	handler := NewAPIHandler(jobQueue, dataStore)
 	// and
 	request := httptest.NewRequest(http.MethodGet, "/api/v1/health", nil)
@@ -146,8 +72,8 @@ func TestRequestHandler_GetMetadata(t *testing.T) {
 
 	for _, td := range data {
 		t.Run(td.Scenario, func(t *testing.T) {
-			jobQueue := new(jobQueueMock)
-			dataStore := new(dataStoreMock)
+			jobQueue := mocks.NewJobQueue()
+			dataStore := mocks.NewDataStore()
 
 			// and
 			handler := NewAPIHandler(jobQueue, dataStore)
@@ -167,8 +93,8 @@ func TestRequestHandler_GetMetadata(t *testing.T) {
 }
 
 func TestRequestHandler_AcceptScanRequest(t *testing.T) {
-	jobQueue := new(jobQueueMock)
-	dataStore := new(dataStoreMock)
+	jobQueue := mocks.NewJobQueue()
+	dataStore := mocks.NewDataStore()
 
 	jobQueue.On("EnqueueScanJob", harbor.ScanRequest{
 		ID:                    "ABC",
@@ -458,8 +384,8 @@ func TestRequestHandler_GetScanReport(t *testing.T) {
 				t.Skip()
 			}
 
-			jobQueue := new(jobQueueMock)
-			dataStore := new(dataStoreMock)
+			jobQueue := mocks.NewJobQueue()
+			dataStore := mocks.NewDataStore()
 
 			if expectation := td.JobQueueExpectation; expectation != nil {
 				jobQueue.On(expectation.MethodName, expectation.Arguments...).

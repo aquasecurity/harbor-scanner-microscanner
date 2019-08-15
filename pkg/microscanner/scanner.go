@@ -21,12 +21,12 @@ type scanner struct {
 	dataStore   store.DataStore
 }
 
-func NewScanner(wrapper Wrapper, transformer model.Transformer, dataStore store.DataStore) (Scanner, error) {
+func NewScanner(wrapper Wrapper, transformer model.Transformer, dataStore store.DataStore) Scanner {
 	return &scanner{
 		transformer: transformer,
 		dataStore:   dataStore,
 		wrapper:     wrapper,
-	}, nil
+	}
 }
 
 func (s *scanner) Scan(req harbor.ScanRequest) error {
@@ -35,10 +35,10 @@ func (s *scanner) Scan(req harbor.ScanRequest) error {
 		err = fmt.Errorf("parsing scan request ID: %v", err)
 	}
 
-	err = s.scan(req)
+	err = s.scan(scanID, req)
 	if err != nil {
 		log.Errorf("Scan failed: %v", err)
-		err = s.dataStore.UpdateJobStatus(scanID, job.Pending, job.Failed)
+		err = s.dataStore.UpdateScanJobStatus(scanID, job.Pending, job.Failed)
 		if err != nil {
 			return fmt.Errorf("updating scan job as failed: %v", err)
 		}
@@ -46,13 +46,8 @@ func (s *scanner) Scan(req harbor.ScanRequest) error {
 	return nil
 }
 
-func (s *scanner) scan(req harbor.ScanRequest) error {
-	scanID, err := uuid.Parse(req.ID)
-	if err != nil {
-		err = fmt.Errorf("parsing scan request ID: %v", err)
-	}
-
-	err = s.dataStore.UpdateJobStatus(scanID, job.Queued, job.Pending)
+func (s *scanner) scan(scanID uuid.UUID, req harbor.ScanRequest) error {
+	err := s.dataStore.UpdateScanJobStatus(scanID, job.Queued, job.Pending)
 	if err != nil {
 		return fmt.Errorf("updating scan job status: %v", err)
 	}
@@ -77,7 +72,7 @@ func (s *scanner) scan(req harbor.ScanRequest) error {
 		return fmt.Errorf("saving scan reports: %v", err)
 	}
 
-	err = s.dataStore.UpdateJobStatus(scanID, job.Pending, job.Finished)
+	err = s.dataStore.UpdateScanJobStatus(scanID, job.Pending, job.Finished)
 	if err != nil {
 		return fmt.Errorf("updating scan job status: %v", err)
 	}

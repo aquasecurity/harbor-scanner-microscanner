@@ -36,12 +36,9 @@ func main() {
 		log.Fatalf("Error: %v", err)
 	}
 
-	scanner, err := microscanner.NewScanner(wrapper, transformer, dataStore)
-	if err != nil {
-		log.Fatalf("Error: %v", err)
-	}
+	scanner := microscanner.NewScanner(wrapper, transformer, dataStore)
 
-	jobQueue, err := work.NewWorkQueue(cfg.JobQueue, scanner, dataStore)
+	jobQueue, err := work.NewJobQueue(cfg.JobQueue, scanner, dataStore)
 	if err != nil {
 		log.Fatalf("Error: %v", err)
 	}
@@ -58,7 +55,7 @@ func main() {
 func GetDataStore(cfg *etc.Config) (store.DataStore, error) {
 	switch cfg.StoreDriver {
 	case etc.StoreDriverRedis:
-		return redis.NewStore(cfg.RedisStore)
+		return redis.NewDataStore(cfg.RedisStore)
 	default:
 		return nil, fmt.Errorf("unrecognized store type: %s", cfg.StoreDriver)
 	}

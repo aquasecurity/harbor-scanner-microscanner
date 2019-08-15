@@ -17,7 +17,7 @@ type ScanReports struct {
 type DataStore interface {
 	SaveScanJob(scanID uuid.UUID, scanJob *job.ScanJob) error
 	GetScanJob(scanID uuid.UUID) (*job.ScanJob, error)
-	UpdateJobStatus(scanID uuid.UUID, currentStatus, newStatus job.ScanJobStatus) error
+	UpdateScanJobStatus(scanID uuid.UUID, currentStatus, newStatus job.ScanJobStatus) error
 	SaveScanReports(scanID uuid.UUID, scanReports *ScanReports) error
 	GetScanReports(scanID uuid.UUID) (*ScanReports, error)
 }

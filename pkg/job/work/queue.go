@@ -27,7 +27,7 @@ type workQueue struct {
 	dataStore  store.DataStore
 }
 
-func NewWorkQueue(cfg *etc.JobQueueConfig, scanner microscanner.Scanner, dataStore store.DataStore) (job.Queue, error) {
+func NewJobQueue(cfg *etc.JobQueueConfig, scanner microscanner.Scanner, dataStore store.DataStore) (job.Queue, error) {
 	redisPool := &redis.Pool{
 		MaxActive: cfg.Pool.MaxActive,
 		MaxIdle:   cfg.Pool.MaxIdle,

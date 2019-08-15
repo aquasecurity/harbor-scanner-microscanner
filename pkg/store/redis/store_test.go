@@ -17,7 +17,7 @@ func TestRedisStore(t *testing.T) {
 		t.Skip("Skipping an integration test")
 	}
 
-	dataStore, err := NewStore(&etc.RedisStoreConfig{
+	dataStore, err := NewDataStore(&etc.RedisStoreConfig{
 		RedisURL:  "redis://localhost:6379",
 		Namespace: "harbor.scanner.microscanner:store",
 		Pool: &etc.PoolConfig{

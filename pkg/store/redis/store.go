@@ -17,7 +17,7 @@ type redisStore struct {
 	cp        *redis.Pool
 }
 
-func NewStore(cfg *etc.RedisStoreConfig) (store.DataStore, error) {
+func NewDataStore(cfg *etc.RedisStoreConfig) (store.DataStore, error) {
 	if cfg == nil {
 		return nil, errors.New("cfg must not be nil")
 	}
@@ -73,7 +73,7 @@ func (rs *redisStore) GetScanJob(scanID uuid.UUID) (*job.ScanJob, error) {
 	return &scanJob, nil
 }
 
-func (rs *redisStore) UpdateJobStatus(scanID uuid.UUID, currentStatus, newStatus job.ScanJobStatus) error {
+func (rs *redisStore) UpdateScanJobStatus(scanID uuid.UUID, currentStatus, newStatus job.ScanJobStatus) error {
 	log.Debugf("Updating status from %v to %v for scan job %v", currentStatus, newStatus, scanID)
 	scanJob, err := rs.GetScanJob(scanID)
 	if err != nil {
