@@ -84,12 +84,7 @@ func (rs *redisStore) UpdateScanJobStatus(scanID uuid.UUID, currentStatus, newSt
 	}
 
 	scanJob.Status = newStatus
-	err = rs.SaveScanJob(scanID, scanJob)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return rs.SaveScanJob(scanID, scanJob)
 }
 
 func (rs *redisStore) SaveScanReports(scanID uuid.UUID, scanReports *store.ScanReports) error {
@@ -103,10 +98,7 @@ func (rs *redisStore) SaveScanReports(scanID uuid.UUID, scanReports *store.ScanR
 
 	key := rs.getKeyForScanReports(scanID)
 	_, err = conn.Do("SET", key, string(b))
-	if err != nil {
-		return err
-	}
-	return nil
+	return err
 }
 
 func (rs *redisStore) GetScanReports(scanID uuid.UUID) (*store.ScanReports, error) {

@@ -1,7 +1,6 @@
 package microscanner
 
 import (
-	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -40,9 +39,6 @@ func (w *wrapper) Run(image string) (*microscanner.ScanReport, error) {
 		return nil, errors.New("image must not be blank")
 	}
 
-	stderrBuffer := bytes.Buffer{}
-	stdoutBuffer := bytes.Buffer{}
-
 	log.Debugf("Started scanning %s", image)
 
 	executable, err := exec.LookPath(wrapperScript)
@@ -52,8 +48,6 @@ func (w *wrapper) Run(image string) (*microscanner.ScanReport, error) {
 	log.Debugf("Wrapper script executable found at %s", executable)
 
 	cmd := exec.Command(executable, image)
-	cmd.Stderr = &stderrBuffer
-	cmd.Stdout = &stdoutBuffer
 	cmd.Env = []string{
 		fmt.Sprintf("DOCKER_HOST=%s", w.cfg.DockerHost),
 		fmt.Sprintf("MICROSCANNER_TOKEN=%s", w.cfg.Token),
@@ -61,18 +55,15 @@ func (w *wrapper) Run(image string) (*microscanner.ScanReport, error) {
 		fmt.Sprintf("USE_LOCAL=%s", "1"),
 	}
 
-	err = cmd.Run()
+	stdout, err := cmd.Output()
 	if err != nil {
 		return nil, fmt.Errorf("running %s: %v", wrapperScript, err)
 	}
 
 	log.Debugf("%s exit code %d", wrapperScript, cmd.ProcessState.ExitCode())
-	if output := stderrBuffer.String(); output != "" {
-		log.Errorf("%s: %s", wrapperScript, output)
-	}
 
 	log.Debugf("Finished scanning %s", image)
-	out := w.extractJSON(stdoutBuffer)
+	out := w.extractJSON(stdout)
 
 	var sr microscanner.ScanReport
 	err = json.Unmarshal([]byte(out), &sr)
@@ -82,8 +73,8 @@ func (w *wrapper) Run(image string) (*microscanner.ScanReport, error) {
 	return &sr, nil
 }
 
-func (w *wrapper) extractJSON(stdoutBuffer bytes.Buffer) string {
-	output := stdoutBuffer.String()
+func (w *wrapper) extractJSON(stdout []byte) string {
+	output := string(stdout)
 	start := strings.Index(output, "{\n  \"scan_started\":")
 	end := strings.LastIndex(output, "Removing intermediate container")
 	return output[start:end]

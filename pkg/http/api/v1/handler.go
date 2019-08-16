@@ -55,6 +55,7 @@ func (h *requestHandler) GetHealth(res http.ResponseWriter, req *http.Request) {
 	res.WriteHeader(http.StatusOK)
 }
 
+// TODO https://github.com/aquasecurity/harbor-scanner-microscanner/issues/16
 func (h *requestHandler) GetMetadata(res http.ResponseWriter, req *http.Request) {
 	md := &harbor.ScannerMetadata{
 		Name:    "MicroScanner",
@@ -173,6 +174,7 @@ func (h *requestHandler) GetScanReport(res http.ResponseWriter, req *http.Reques
 	}
 }
 
+// TODO https://github.com/aquasecurity/harbor-scanner-microscanner/issues/18
 func (h *requestHandler) SendInternalServerError(res http.ResponseWriter) {
 	http.Error(res, "Internal Server Error", http.StatusInternalServerError)
 }

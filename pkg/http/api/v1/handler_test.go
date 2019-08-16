@@ -15,7 +15,6 @@ import (
 	"testing"
 )
 
-
 type Request struct {
 	Method  string
 	Target  string

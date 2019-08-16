@@ -7,6 +7,8 @@ import (
 
 const (
 	StoreDriverRedis = "redis"
+
+	defaultRedisURL = "redis://localhost:6379"
 )
 
 type Config struct {
@@ -51,7 +53,7 @@ func GetConfig() (*Config, error) {
 			Options:    "--continue-on-failure --full-output",
 		},
 		RedisStore: &RedisStoreConfig{
-			RedisURL:  "redis://localhost:6379",
+			RedisURL:  defaultRedisURL,
 			Namespace: "harbor.scanner.microscanner:store",
 			Pool: &PoolConfig{
 				MaxActive: 5,
@@ -59,7 +61,7 @@ func GetConfig() (*Config, error) {
 			},
 		},
 		JobQueue: &JobQueueConfig{
-			RedisURL:          "redis://localhost:6379",
+			RedisURL:          defaultRedisURL,
 			Namespace:         "harbor.scanner.microscanner:job-queue",
 			WorkerConcurrency: 1,
 			Pool: &PoolConfig{
