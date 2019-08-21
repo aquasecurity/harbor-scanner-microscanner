@@ -5,11 +5,10 @@ import (
 	"github.com/aquasecurity/harbor-scanner-microscanner/pkg/etc"
 	"github.com/aquasecurity/harbor-scanner-microscanner/pkg/http/api/v1"
 	"github.com/aquasecurity/harbor-scanner-microscanner/pkg/job/work"
+	"github.com/aquasecurity/harbor-scanner-microscanner/pkg/microscanner"
 	"github.com/aquasecurity/harbor-scanner-microscanner/pkg/model"
-	"github.com/aquasecurity/harbor-scanner-microscanner/pkg/scanner/microscanner"
 	"github.com/aquasecurity/harbor-scanner-microscanner/pkg/store"
 	"github.com/aquasecurity/harbor-scanner-microscanner/pkg/store/redis"
-	"github.com/gorilla/mux"
 	log "github.com/sirupsen/logrus"
 	"net/http"
 	"os"
@@ -29,42 +28,34 @@ func main() {
 
 	log.Infof("Starting harbor-scanner-microscanner with config %v", cfg)
 
-	dataStore, err := GetStore(cfg)
+	wrapper := microscanner.NewWrapper(cfg.MicroScanner)
+	transformer := model.NewTransformer()
+
+	dataStore, err := GetDataStore(cfg)
 	if err != nil {
 		log.Fatalf("Error: %v", err)
 	}
 
-	scanner, err := microscanner.NewScanner(cfg, model.NewTransformer(), dataStore)
-	if err != nil {
-		log.Fatalf("Error: %v", err)
-	}
+	scanner := microscanner.NewScanner(wrapper, transformer, dataStore)
 
-	jobQueue, err := work.NewWorkQueue(cfg, scanner)
+	jobQueue, err := work.NewJobQueue(cfg.JobQueue, scanner, dataStore)
 	if err != nil {
 		log.Fatalf("Error: %v", err)
 	}
 	jobQueue.Start()
 
-	apiHandler := v1.NewAPIHandler(scanner, jobQueue)
+	apiHandler := v1.NewAPIHandler(jobQueue, dataStore)
 
-	router := mux.NewRouter()
-	v1Router := router.PathPrefix("/api/v1").Subrouter()
-
-	v1Router.Methods(http.MethodGet).Path("").HandlerFunc(apiHandler.GetVersion)
-	v1Router.Methods(http.MethodGet).Path("/metadata").HandlerFunc(apiHandler.GetMetadata)
-	v1Router.Methods(http.MethodPost).Path("/scan").HandlerFunc(apiHandler.SubmitScan)
-	v1Router.Methods(http.MethodGet).Path("/scan/{scanRequestID}/report").HandlerFunc(apiHandler.GetScanReport)
-
-	err = http.ListenAndServe(cfg.APIAddr, router)
+	err = http.ListenAndServe(cfg.APIAddr, apiHandler)
 	if err != nil && err != http.ErrServerClosed {
 		log.Fatalf("Error: %v", err)
 	}
 }
 
-func GetStore(cfg *etc.Config) (store.DataStore, error) {
+func GetDataStore(cfg *etc.Config) (store.DataStore, error) {
 	switch cfg.StoreDriver {
 	case etc.StoreDriverRedis:
-		return redis.NewStore(cfg.RedisStore)
+		return redis.NewDataStore(cfg.RedisStore)
 	default:
 		return nil, fmt.Errorf("unrecognized store type: %s", cfg.StoreDriver)
 	}

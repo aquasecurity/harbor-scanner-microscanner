@@ -5,10 +5,12 @@ import (
 	"fmt"
 	"github.com/aquasecurity/harbor-scanner-microscanner/pkg/etc"
 	"github.com/aquasecurity/harbor-scanner-microscanner/pkg/job"
+	"github.com/aquasecurity/harbor-scanner-microscanner/pkg/microscanner"
 	"github.com/aquasecurity/harbor-scanner-microscanner/pkg/model/harbor"
-	"github.com/aquasecurity/harbor-scanner-microscanner/pkg/scanner"
+	"github.com/aquasecurity/harbor-scanner-microscanner/pkg/store"
 	"github.com/gocraft/work"
 	"github.com/gomodule/redigo/redis"
+	"github.com/google/uuid"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -22,34 +24,35 @@ type workQueue struct {
 	redisPool  *redis.Pool
 	workerPool *work.WorkerPool
 	enqueuer   *work.Enqueuer
+	dataStore  store.DataStore
 }
 
-func NewWorkQueue(cfg *etc.Config, scanner scanner.Scanner) (job.Queue, error) {
+func NewJobQueue(cfg *etc.JobQueueConfig, scanner microscanner.Scanner, dataStore store.DataStore) (job.Queue, error) {
 	redisPool := &redis.Pool{
-		MaxActive: cfg.JobQueue.Pool.MaxActive,
-		MaxIdle:   cfg.JobQueue.Pool.MaxIdle,
+		MaxActive: cfg.Pool.MaxActive,
+		MaxIdle:   cfg.Pool.MaxIdle,
 		Wait:      true,
 		Dial: func() (redis.Conn, error) {
-			return redis.DialURL(cfg.JobQueue.RedisURL)
+			return redis.DialURL(cfg.RedisURL)
 		},
 	}
 
-	workerPool := work.NewWorkerPool(workQueue{}, cfg.JobQueue.WorkerConcurrency, cfg.JobQueue.Namespace, redisPool)
-	enqueuer := work.NewEnqueuer(cfg.JobQueue.Namespace, redisPool)
+	workerPool := work.NewWorkerPool(workQueue{}, cfg.WorkerConcurrency, cfg.Namespace, redisPool)
+	enqueuer := work.NewEnqueuer(cfg.Namespace, redisPool)
 
 	workerPool.Middleware(func(j *work.Job, n work.NextMiddlewareFunc) error {
-		// TODO Is there any better way to do that?
-		log.Debugf("Setting scanner as job arg: %s", scannerArg)
+		// TODO Is there any better way to inject dependencies?
 		j.Args[scannerArg] = scanner
 		return n()
 	})
 
-	workerPool.JobWithOptions(jobScanImage, work.JobOptions{Priority: 1, MaxFails: 1}, (*workQueue).ScanImage)
+	workerPool.JobWithOptions(jobScanImage, work.JobOptions{Priority: 1, MaxFails: 1}, (*workQueue).ExecuteScanJob)
 
 	return &workQueue{
 		redisPool:  redisPool,
 		workerPool: workerPool,
 		enqueuer:   enqueuer,
+		dataStore:  dataStore,
 	}, nil
 }
 
@@ -61,30 +64,49 @@ func (wq *workQueue) Stop() {
 	wq.workerPool.Stop()
 }
 
-func (wq *workQueue) SubmitScanImageJob(sr harbor.ScanRequest) (string, error) {
-	log.Debugf("Submitting scan image job %v", sr)
+func (wq *workQueue) EnqueueScanJob(sr harbor.ScanRequest) (*job.ScanJob, error) {
+	log.Debugf("Enqueueing scan job for scan request ID %v", sr.ID)
 
 	b, err := json.Marshal(sr)
 	if err != nil {
-		return "", fmt.Errorf("marshalling scan request: %v", err)
+		return nil, fmt.Errorf("marshalling scan request: %v", err)
 	}
 
 	j, err := wq.enqueuer.Enqueue(jobScanImage, work.Q{
 		scanRequestArg: string(b),
 	})
 	if err != nil {
-		return "", fmt.Errorf("enqueuing scan image job: %v", err)
+		return nil, fmt.Errorf("enqueuing scan image job: %v", err)
 	}
-	log.Debugf("Successfully enqueued job: %v", j.ID)
-	return j.ID, nil
+	log.Debugf("Successfully enqueued scan job with ID %v for scan request ID %v", j.ID, sr.ID)
+
+	scanID, err := uuid.Parse(sr.ID)
+	if err != nil {
+		return nil, fmt.Errorf("parsing scan request ID: %v", err)
+	}
+
+	scanJob := &job.ScanJob{
+		ID:     j.ID,
+		Status: job.Queued,
+	}
+
+	err = wq.dataStore.SaveScanJob(scanID, scanJob)
+	if err != nil {
+		return nil, fmt.Errorf("saving scan job %v", err)
+	}
+
+	return scanJob, nil
 }
 
-func (wq *workQueue) ScanImage(job *work.Job) error {
+func (wq *workQueue) GetScanJob(scanID uuid.UUID) (*job.ScanJob, error) {
+	return wq.dataStore.GetScanJob(scanID)
+}
+
+func (wq *workQueue) ExecuteScanJob(job *work.Job) error {
 	log.Debugf("Scan job started: %v", job.ID)
-	log.Debugf("Getting scanner from job arg: %s", scannerArg)
-	sc, ok := job.Args[scannerArg].(scanner.Scanner)
+	scanner, ok := job.Args[scannerArg].(microscanner.Scanner)
 	if !ok {
-		return fmt.Errorf("getting scanner from job arg")
+		return fmt.Errorf("getting scanner from job args")
 	}
 
 	var sr harbor.ScanRequest
@@ -98,7 +120,7 @@ func (wq *workQueue) ScanImage(job *work.Job) error {
 		return err
 	}
 
-	err = sc.SubmitScan(sr)
+	err = scanner.Scan(sr)
 	if err != nil {
 		return err
 	}

@@ -21,7 +21,7 @@ type ScanRequest struct {
 	ArtifactDigest        string `json:"artifact_digest"`
 }
 
-type VulnerabilitiesReport struct {
+type VulnerabilityReport struct {
 	Severity        Severity             `json:"severity"`
 	Vulnerabilities []*VulnerabilityItem `json:"vulnerabilities"`
 }

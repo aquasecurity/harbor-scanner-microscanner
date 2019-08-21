@@ -10,7 +10,7 @@ import (
 //
 // Transform transforms Microscanner's scan results model to Harbor's model.
 type Transformer interface {
-	Transform(sr *microscanner.ScanReport) (*harbor.VulnerabilitiesReport, error)
+	Transform(sr *microscanner.ScanReport) (*harbor.VulnerabilityReport, error)
 }
 
 type transformer struct {
@@ -20,7 +20,7 @@ func NewTransformer() Transformer {
 	return &transformer{}
 }
 
-func (t *transformer) Transform(sr *microscanner.ScanReport) (*harbor.VulnerabilitiesReport, error) {
+func (t *transformer) Transform(sr *microscanner.ScanReport) (*harbor.VulnerabilityReport, error) {
 	var items []*harbor.VulnerabilityItem
 
 	for _, resourceScan := range sr.Resources {
@@ -39,7 +39,7 @@ func (t *transformer) Transform(sr *microscanner.ScanReport) (*harbor.Vulnerabil
 
 	severity := t.toComponentsOverview(sr)
 
-	return &harbor.VulnerabilitiesReport{
+	return &harbor.VulnerabilityReport{
 		Severity:        severity,
 		Vulnerabilities: items,
 	}, nil
