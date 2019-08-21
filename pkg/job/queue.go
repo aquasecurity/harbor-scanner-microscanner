@@ -23,14 +23,14 @@ type ScanJob struct {
 	Status ScanJobStatus `json:"status"`
 }
 
-// Queue manages execution of scan jobs.
+// Queue manages execution of ScanJobs.
 type Queue interface {
 	// Start starts this queue.
 	Start()
 	// Stop stops this queue.
 	Stop()
-	// EnqueueScanJob enqueues a scan job for the given scan request.
+	// EnqueueScanJob enqueues a ScanJob for the given ScanRequest.
 	EnqueueScanJob(sr harbor.ScanRequest) (*ScanJob, error)
-	// GetScanJob returns a scan job for the given scan request ID
-	GetScanJob(scanRequestID uuid.UUID) (*ScanJob, error)
+	// GetScanJob returns a ScanJob associated with the given scan request identifier.
+	GetScanJob(scanID uuid.UUID) (*ScanJob, error)
 }
