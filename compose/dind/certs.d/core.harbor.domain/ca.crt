@@ -1,0 +1,3 @@
+-----BEGIN CERTIFICATE-----
+Certificate authority that signed the Harbor registry certificate goes here.
+-----END CERTIFICATE-----

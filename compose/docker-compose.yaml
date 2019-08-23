@@ -30,6 +30,7 @@ services:
       - scanner
     volumes:
       - dind-data:/var/lib/docker
+      - ./dind/certs.d:/etc/docker/certs.d
   redis:
     image: redis:5.0.5
     ports:
