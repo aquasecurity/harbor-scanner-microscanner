@@ -1,6 +1,7 @@
 package microscanner
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -13,11 +14,14 @@ import (
 
 const (
 	wrapperScript = "microscanner-wrapper.sh"
+	fieldImage    = "image"
+	fieldExitCode = "exit_code"
+	fieldStdErr   = "std_err"
 )
 
 // Wrapper wraps the Run method.
 //
-// Run runs a MicroScanner wrapper script and parses the output report to ScanReport.
+// Run runs a MicroScanner wrapper script and parses the standard output to ScanReport.
 type Wrapper interface {
 	Run(image string) (*microscanner.ScanReport, error)
 }
@@ -39,15 +43,16 @@ func (w *wrapper) Run(image string) (*microscanner.ScanReport, error) {
 		return nil, errors.New("image must not be blank")
 	}
 
-	log.Debugf("Started scanning %s", image)
-
 	executable, err := exec.LookPath(wrapperScript)
 	if err != nil {
 		return nil, fmt.Errorf("searching for %s executable: %v", wrapperScript, err)
 	}
-	log.Debugf("Wrapper script executable found at %s", executable)
+	log.WithField(fieldImage, image).Debugf("Wrapper script executable found at %s", executable)
+
+	stderrBuffer := bytes.Buffer{}
 
 	cmd := exec.Command(executable, image)
+	cmd.Stderr = &stderrBuffer
 	cmd.Env = []string{
 		fmt.Sprintf("DOCKER_HOST=%s", w.cfg.DockerHost),
 		fmt.Sprintf("MICROSCANNER_TOKEN=%s", w.cfg.Token),
@@ -55,14 +60,24 @@ func (w *wrapper) Run(image string) (*microscanner.ScanReport, error) {
 		fmt.Sprintf("USE_LOCAL=%s", "1"),
 	}
 
+	log.WithField(fieldImage, image).Debug("Running wrapper script")
+
 	stdout, err := cmd.Output()
 	if err != nil {
+		log.WithFields(log.Fields{
+			fieldImage:    image,
+			fieldExitCode: cmd.ProcessState.ExitCode(),
+			fieldStdErr:   stderrBuffer.String(),
+		}).Error("Wrapper script failed")
 		return nil, fmt.Errorf("running %s: %v", wrapperScript, err)
 	}
 
-	log.Debugf("%s exit code %d", wrapperScript, cmd.ProcessState.ExitCode())
+	log.WithFields(log.Fields{
+		fieldImage:    image,
+		fieldExitCode: cmd.ProcessState.ExitCode(),
+		fieldStdErr:   stderrBuffer.String(),
+	}).Debug("Wrapper script finished")
 
-	log.Debugf("Finished scanning %s", image)
 	out := w.extractJSON(stdout)
 
 	var sr microscanner.ScanReport

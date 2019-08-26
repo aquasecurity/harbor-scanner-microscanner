@@ -8,7 +8,7 @@ import (
 
 // Transformer wraps the Transform method.
 //
-// Transform transforms Microscanner's scan results model to Harbor's model.
+// Transform transforms MicroScanner's scan report to Harbor's os package vulnerability report.
 type Transformer interface {
 	Transform(sr *microscanner.ScanReport) (*harbor.VulnerabilityReport, error)
 }
@@ -54,7 +54,7 @@ func (t *transformer) toHarborSeverity(severity string) harbor.Severity {
 	case "low":
 		return harbor.SevLow
 	default:
-		log.Warnf("Unknown microscanner severity `%s`", severity)
+		log.WithField("severity", severity).Warn("Unknown microscanner severity")
 		return harbor.SevUnknown
 	}
 }

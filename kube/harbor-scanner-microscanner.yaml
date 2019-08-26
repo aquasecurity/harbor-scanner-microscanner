@@ -3,6 +3,9 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: harbor-scanner-microscanner
+  labels:
+    app.kubernetes.io/name: harbor-scanner-microscanner
+    app.kubernetes.io/managed-by: kubectl
 spec:
   replicas: 1
   selector:
@@ -18,28 +21,25 @@ spec:
           image: aquasec/harbor-scanner-microscanner:poc
           imagePullPolicy: IfNotPresent
           env:
-            - name: "SCANNER_ADDR"
+            - name: "SCANNER_API_ADDR"
               value: ":8080"
             - name: "SCANNER_DOCKER_HOST"
               value: "tcp://localhost:2375"
-            - name: "SCANNER_STORE_DRIVER"
-              value: "fs"
-            - name: "SCANNER_STORE_FS_DATA_DIR"
-              value: "/data/scanner"
-            - name: "SCANNER_REGISTRY_URL"
-              value: "core.harbor.domain"
             - name: "SCANNER_MICROSCANNER_OPTIONS"
-              value: "-c"
+              value: "--continue-on-failure --full-output"
             - name: "SCANNER_MICROSCANNER_TOKEN"
               valueFrom:
                 secretKeyRef:
                   name: harbor-scanner-microscanner
                   key: microscanner-token
+            - name: "SCANNER_STORE_DRIVER"
+              value: "redis"
+            - name: "SCANNER_STORE_REDIS_URL"
+              value: "redis://harbor-harbor-redis:6379"
+            - name: "SCANNER_JOB_QUEUE_REDIS_URL"
+              value: "redis://harbor-harbor-redis:6379"
           ports:
             - containerPort: 8080
-          volumeMounts:
-            - mountPath: /data/scanner
-              name: microscanner-data
         - name: dind
           image: docker:18.05-dind
           imagePullPolicy: IfNotPresent
@@ -52,22 +52,26 @@ spec:
             - name: dind-storage
               mountPath: /var/lib/docker
             - name: dind-config
+              # Change core.harbor.domain to the Harbor registry hostname:port
               mountPath: /etc/docker/certs.d/core.harbor.domain
               readOnly: true
       volumes:
-        - name: microscanner-data
-          hostPath:
-            path: /data/microscanner
         - name: dind-storage
           emptyDir: {}
         - name: dind-config
-          secret:
-            secretName: harbor-scanner-microscanner-dind
+          configMap:
+            name: harbor-scanner-microscanner
+            items:
+              - key: harbor-registry-cert
+                path: ca.crt
 ---
 apiVersion: v1
 kind: Service
 metadata:
   name: harbor-scanner-microscanner
+  labels:
+    app.kubernetes.io/name: harbor-scanner-microscanner
+    app.kubernetes.io/managed-by: kubectl
 spec:
   selector:
     app: harbor-scanner-microscanner

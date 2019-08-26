@@ -65,7 +65,9 @@ func (wq *workQueue) Stop() {
 }
 
 func (wq *workQueue) EnqueueScanJob(sr harbor.ScanRequest) (*job.ScanJob, error) {
-	log.Debugf("Enqueueing scan job for scan request ID %v", sr.ID)
+	log.WithFields(log.Fields{
+		"scan_request_id": sr.ID,
+	}).Debug("Enqueueing scan job")
 
 	b, err := json.Marshal(sr)
 	if err != nil {
@@ -78,7 +80,10 @@ func (wq *workQueue) EnqueueScanJob(sr harbor.ScanRequest) (*job.ScanJob, error)
 	if err != nil {
 		return nil, fmt.Errorf("enqueuing scan image job: %v", err)
 	}
-	log.Debugf("Successfully enqueued scan job with ID %v for scan request ID %v", j.ID, sr.ID)
+	log.WithFields(log.Fields{
+		"scan_job":        j.ID,
+		"scan_request_id": sr.ID,
+	}).Debug("Successfully enqueued scan job")
 
 	scanID, err := uuid.Parse(sr.ID)
 	if err != nil {
@@ -103,7 +108,10 @@ func (wq *workQueue) GetScanJob(scanID uuid.UUID) (*job.ScanJob, error) {
 }
 
 func (wq *workQueue) ExecuteScanJob(job *work.Job) error {
-	log.Debugf("Scan job started: %v", job.ID)
+	log.WithFields(log.Fields{
+		"scan_job": job.ID,
+	}).Debug("Scan job started")
+
 	scanner, ok := job.Args[scannerArg].(microscanner.Scanner)
 	if !ok {
 		return fmt.Errorf("getting scanner from job args")
@@ -124,6 +132,9 @@ func (wq *workQueue) ExecuteScanJob(job *work.Job) error {
 	if err != nil {
 		return err
 	}
-	log.Debugf("Scan job finished: %s", job.ID)
+
+	log.WithFields(log.Fields{
+		"scan_job": job.ID,
+	}).Debug("Scan job finished")
 	return err
 }

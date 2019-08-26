@@ -9,6 +9,16 @@
 This project is a POC of an out-of-tree implementation of the Harbor Scanner Adapter API for [MicroScanner][microscanner-url].
 See [Pluggable Image Vulnerability Scanning Proposal][image-vulnerability-scanning-proposal] for more details.
 
+## TOC
+
+- [Quick Start](#quick-start)
+- [Configuration](#configuration)
+- [Run with Docker](#run-with-docker)
+- [Deploy to minikube](#deploy-to-minikube)
+- [Test Images](#test-images)
+- [Troubleshooting](#troubleshooting)
+- [References](#references)
+
 ## Quick Start
 
 1. Generate a unique identifier for a scan request:
@@ -30,7 +40,7 @@ See [Pluggable Image Vulnerability Scanning Proposal][image-vulnerability-scanni
    ```
 3. Get a vulnerabilities report in Harbor Web Console's format:
    ```
-   curl -H 'Accept: application/vnd.scanner.adapter.vuln.report.harbor.v1+json' \
+   curl -H 'Accept: application/vnd.scanner.adapter.vuln.report.harbor+json; version=1.0' \
      http://localhost:8080/api/v1/scan/${SCAN_REQUEST_ID}/report
    ```
 4. Get a vulnerabilities report in MicroScanner's format:
@@ -38,17 +48,6 @@ See [Pluggable Image Vulnerability Scanning Proposal][image-vulnerability-scanni
    curl -H 'Accept: application/vnd.scanner.adapter.vuln.report.raw' \
      http://localhost:8080/api/v1/scan/${SCAN_REQUEST_ID}/report
    ```
-
-## Test Images
-
-| Registry  | Repository     | Tag        | Digest                                                                  |
-|-----------|----------------|------------|-------------------------------------------------------------------------|
-| docker.io | library/mongo  | 3.4-xenial | sha256:917f5b7f4bef1b35ee90f03033f33a81002511c1e0767fd44276d4bd9cd2fa8e |
-| docker.io | library/nginx  | 1.17.2     | sha256:eb3320e2f9ca409b7c0aa71aea3cf7ce7d018f03a372564dbdb023646958770b |
-| docker.io | library/debian | 9.9-slim   | sha256:0c04edb9ae10feb7ac03a659dd41e16c79e04fdb2b10cf93c3cbcef1fd6cc1d5 |
-| docker.io | library/debian | bullseye   | sha256:fe4612b98b35c8ae4719a6a8d5e98432b4b297767a8aebfd858c48f98ecebb7b |
-| quay.io   | coreos/clair   | v2.0.8     | sha256:303c7b22e1778acb7c624cca01bad8d3bc5a1b25922d59d28908f223639d9722 |
-| docker.io | library/oracle/nosql | 4.3.11 | sha256:df0dc81e03cb1ea29dd68124608fbea35a16dd954ae2e0a6acdeecd739721e8e |
 
 ## Configuration
 
@@ -82,39 +81,80 @@ make compose-down
 
 ## Deploy to minikube
 
-> The following instructions need some update.
+1. Configure Docker client with Docker Engine in minikube:
+   ```
+   eval $(minikube docker-env -p harbor)
+   ```
+2. Build Docker container:
+   ```
+   make container
+   ```
+3. Create the `harbor-scanner-microscanner` secret with MicroScanner token:
+   ```
+   kubectl create secret generic harbor-scanner-microscanner \
+     --from-literal="microscanner-token=${SCANNER_MICROSCANNER_TOKEN}"
+   ```
+4. Create the `harbor-scanner-microscanner` config map with Harbor registry certificate:
+   ```
+   kubectl create configmap harbor-scanner-microscanner \
+     --from-file="harbor-registry-cert=${HARBOR_REGISTRY_CERT}"
+   ```
+5. Create `harbor-scanner-microscanner` deployment and service:
+   ```
+   kubectl apply -f kube/harbor-scanner-microscanner.yaml
+   ```
+6. If everything is fine you should be able to get scanner's metadata:
+   ```
+   kubectl port-forward service/harbor-scanner-microscanner 8080:8080 &> /dev/null &
+   curl -v http://localhost:8080/api/v1/metadata | jq
+   ```
+
+## Test Images
+
+| Registry  | Repository           | Tag        | Digest                                                                  |
+|-----------|----------------------|------------|-------------------------------------------------------------------------|
+| docker.io | library/mongo        | 3.4-xenial | sha256:917f5b7f4bef1b35ee90f03033f33a81002511c1e0767fd44276d4bd9cd2fa8e |
+| docker.io | library/nginx        | 1.17.2     | sha256:eb3320e2f9ca409b7c0aa71aea3cf7ce7d018f03a372564dbdb023646958770b |
+| docker.io | library/debian       | 9.9-slim   | sha256:0c04edb9ae10feb7ac03a659dd41e16c79e04fdb2b10cf93c3cbcef1fd6cc1d5 |
+| docker.io | library/debian       | bullseye   | sha256:fe4612b98b35c8ae4719a6a8d5e98432b4b297767a8aebfd858c48f98ecebb7b |
+| quay.io   | coreos/clair         | v2.0.8     | sha256:303c7b22e1778acb7c624cca01bad8d3bc5a1b25922d59d28908f223639d9722 |
+| docker.io | library/oracle/nosql | 4.3.11     | sha256:df0dc81e03cb1ea29dd68124608fbea35a16dd954ae2e0a6acdeecd739721e8e |
+| https://core.harbor.domain/v2         | scanners/nginx | latest | sha256:099019968725f0fc12c4b69b289a347ae74cc56da0f0ef56e8eb8e0134fc7911 |
+| http://harbor-harbor-registry:5000/v2 | scanners/nginx | latest | sha256:099019968725f0fc12c4b69b289a347ae74cc56da0f0ef56e8eb8e0134fc7911 |
+
+## Troubleshooting
+
+### `Error: Get https://core.harbor.domain/v2/: x590: certificate signed by unknown authority`
+
+If you are using a custom or self-signed Harbor registry certificate, make sure that it is added to the
+`/etc/docker.certs.d` directory in the `dind` container. For example, the certificate for the registry accessible
+at https://core.harbor.domain/v2 should be stored under `/etc/docker/certs.d/core.harbor.domain/ca.crt`.
+
+### `Error: pull access denied for core.harbor.domain/scanners/nginx, repository does not exist or may require 'docker login'`
+
+TODO Describe the usage of `~/.docker/config.json` and JWT Access Token expiry.
 
 ```
-eval $(minikube docker-env -p harbor)
-
-make container
-
-MICROSCANNER_TOKEN="TOKENGOESHERE"
-kubectl create secret generic harbor-scanner-microscanner \
-  --from-literal="microscanner-token=${MICROSCANNER_TOKEN}"
-
-kubectl create secret generic harbor-scanner-microscanner-dind \
-  --from-file="ca.crt=/path/to/harbor/ca.crt"
-
-kubectl apply -f kube/harbor-scanner-microscanner.yaml
+export ACCESS_TOKEN="JWTTOKENGOESHERE"
+mkdir -p ~/.docker
+cat <<EOF > ~/.docker/config.json
+{
+  "auths": {
+    "core.harbor.domain": {
+      "registrytoken": "${ACCESS_TOKEN}"
+    }
+  },
+  "HttpHeaders": {
+    "User-Agent": "Harbor Scanner Microscanner"
+  }
+}
+EOF
 ```
 
-```
-# Check harbor-scanner-microscanner pod name
-MICROSCANNER_ADAPTER_POD=harbor-microscanner-adapter-f49f79775-9bdtm
+### `Error: Get https://harbor-harbor-registry:5000/v2/: http: server gave HTTP response to HTTPS client`
 
-kubectl exec ${MICROSCANNER_ADAPTER_POD} -c dind \
-  -- mkdir -p /etc/docker/certs.d/core.harbor.domain
-kubectl cp ~/Downloads/ca.crt \
-  ${MICROSCANNER_ADAPTER_POD}:/etc/docker/certs.d/core.harbor.domain -c dind
-
-DOCKER_HOST=tcp://localhost:2375 docker pull core.harbor.domain/library/mongo:3.4.21-xenial
-```
-
-```
-kubectl port-forward service/harbor-scanner-microscanner 8080:8080 &> /dev/null &
-curl -H http://localhost:8080/api/v1/
-```
+Most likely you are using an insecure registry which should be explicitly declared in the `/etc/docker/daemon.json`
+config file or as the `--insecure-registry` flag.
 
 ## References
 
