@@ -15,6 +15,7 @@ curl http://localhost:8080/api/v1/scan \
 {
   "id": "${SCAN_REQUEST_ID}",
   "registry_url": "${REGISTRY_URL}",
+  "registry_authorization": "${REGISTRY_AUTHORIZATION}",
   "artifact_repository": "${ARTIFACT_REPOSITORY}",
   "artifact_digest": "${ARTIFACT_DIGEST}"
 }

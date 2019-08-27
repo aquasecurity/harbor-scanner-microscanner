@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"github.com/aquasecurity/harbor-scanner-microscanner/pkg/docker"
 	"github.com/aquasecurity/harbor-scanner-microscanner/pkg/etc"
 	"github.com/aquasecurity/harbor-scanner-microscanner/pkg/http/api/v1"
 	"github.com/aquasecurity/harbor-scanner-microscanner/pkg/job/work"
@@ -29,6 +30,7 @@ func main() {
 
 	log.Info("Starting harbor-scanner-microscanner")
 
+	authorizer := docker.NewAuthorizer()
 	wrapper := microscanner.NewWrapper(cfg.MicroScanner)
 	transformer := model.NewTransformer()
 
@@ -37,7 +39,7 @@ func main() {
 		log.Fatalf("Error: %v", err)
 	}
 
-	scanner := microscanner.NewScanner(wrapper, transformer, dataStore)
+	scanner := microscanner.NewScanner(authorizer, wrapper, transformer, dataStore)
 
 	jobQueue, err := work.NewJobQueue(cfg.JobQueue, scanner, dataStore)
 	if err != nil {

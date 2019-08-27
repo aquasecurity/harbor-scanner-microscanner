@@ -2,6 +2,7 @@ package microscanner
 
 import (
 	"fmt"
+	"github.com/aquasecurity/harbor-scanner-microscanner/pkg/docker"
 	"github.com/aquasecurity/harbor-scanner-microscanner/pkg/job"
 	"github.com/aquasecurity/harbor-scanner-microscanner/pkg/model"
 	"github.com/aquasecurity/harbor-scanner-microscanner/pkg/model/harbor"
@@ -16,13 +17,15 @@ type Scanner interface {
 }
 
 type scanner struct {
+	authorizer  docker.Authorizer
 	wrapper     Wrapper
 	transformer model.Transformer
 	dataStore   store.DataStore
 }
 
-func NewScanner(wrapper Wrapper, transformer model.Transformer, dataStore store.DataStore) Scanner {
+func NewScanner(authorizer docker.Authorizer, wrapper Wrapper, transformer model.Transformer, dataStore store.DataStore) Scanner {
 	return &scanner{
+		authorizer:  authorizer,
 		transformer: transformer,
 		dataStore:   dataStore,
 		wrapper:     wrapper,
@@ -52,8 +55,13 @@ func (s *scanner) scan(scanID uuid.UUID, req harbor.ScanRequest) error {
 		return fmt.Errorf("updating scan job status: %v", err)
 	}
 
+	dockerConfig, err := s.authorizer.Authorize(req)
+	if err != nil {
+		return fmt.Errorf("authorizing request: %v", err)
+	}
+
 	imageToScan := fmt.Sprintf("%s/%s@%s", req.RegistryURL, req.ArtifactRepository, req.ArtifactDigest)
-	microScannerReport, err := s.wrapper.Run(imageToScan)
+	microScannerReport, err := s.wrapper.Run(imageToScan, *dockerConfig)
 	if err != nil {
 		return fmt.Errorf("running microscanner wrapper script: %v", err)
 	}
