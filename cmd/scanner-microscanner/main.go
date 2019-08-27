@@ -18,6 +18,7 @@ func init() {
 	log.SetOutput(os.Stdout)
 	log.SetLevel(log.DebugLevel)
 	log.SetReportCaller(false)
+	log.SetFormatter(&log.JSONFormatter{})
 }
 
 func main() {
@@ -26,7 +27,7 @@ func main() {
 		log.Fatalf("Error: %v", err)
 	}
 
-	log.Infof("Starting harbor-scanner-microscanner with config %v", cfg)
+	log.Info("Starting harbor-scanner-microscanner")
 
 	wrapper := microscanner.NewWrapper(cfg.MicroScanner)
 	transformer := model.NewTransformer()

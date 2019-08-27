@@ -11,7 +11,7 @@ services:
       SCANNER_API_ADDR: ":8080"
       SCANNER_DOCKER_HOST: "tcp://dind:2375"
       SCANNER_MICROSCANNER_TOKEN: ${SCANNER_MICROSCANNER_TOKEN}
-      SCANNER_MICROSCANNER_OPTIONS: "--continue-on-failure"
+      SCANNER_MICROSCANNER_OPTIONS: "--continue-on-failure --full-output"
       SCANNER_STORE_DRIVER: "redis"
       SCANNER_STORE_REDIS_URL: "redis://redis:6379"
       SCANNER_JOB_QUEUE_REDIS_URL: "redis://redis:6379"

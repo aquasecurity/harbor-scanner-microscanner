@@ -28,6 +28,10 @@ const (
 	pathScan             = "/scan"
 	pathScanReport       = "/scan/{scanRequestID}/report"
 	pathVarScanRequestID = "scanRequestID"
+
+	fieldScanJob       = "scan_job"
+	fieldScanRequestID = "scan_request_id"
+	fieldError         = "error"
 )
 
 type requestHandler struct {
@@ -94,11 +98,17 @@ func (h *requestHandler) AcceptScanRequest(res http.ResponseWriter, req *http.Re
 
 	scanJob, err := h.jobQueue.EnqueueScanJob(scanRequest)
 	if err != nil {
-		log.Errorf("Error while enqueuing scan job: %v", err)
+		log.WithFields(log.Fields{
+			fieldScanRequestID: scanRequest.ID,
+			fieldError:         err,
+		}).Error("Error while enqueuing scan job")
 		h.SendInternalServerError(res)
 		return
 	}
-	log.Debugf("Enqueued scan job %v for scan request %v", scanJob.ID, scanRequest.ID)
+	log.WithFields(log.Fields{
+		fieldScanJob:       scanJob.ID,
+		fieldScanRequestID: scanRequest.ID,
+	}).Debug("Enqueued scan job")
 
 	res.WriteHeader(http.StatusAccepted)
 }
@@ -113,7 +123,10 @@ func (h *requestHandler) GetScanReport(res http.ResponseWriter, req *http.Reques
 
 	scanID, err := uuid.Parse(scanRequestID)
 	if err != nil {
-		log.Errorf("Error while parsing scan request ID: %v", scanRequestID)
+		log.WithFields(log.Fields{
+			fieldScanRequestID: scanRequestID,
+			fieldError:         err,
+		}).Error("Error while parsing scan request ID")
 		h.SendInternalServerError(res)
 		return
 	}
