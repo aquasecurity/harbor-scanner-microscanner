@@ -14,7 +14,8 @@ See [Pluggable Image Vulnerability Scanning Proposal][image-vulnerability-scanni
 - [Quick Start](#quick-start)
 - [Configuration](#configuration)
 - [Run with Docker](#run-with-docker)
-- [Deploy to minikube](#deploy-to-minikube)
+- [Deploy to minikube with skaffold](#deploy-to-minikube-with-skaffold)
+- [Deploy to minikube with kubectl](#deploy-to-minikube-with-kubectl)
 - [Test Images](#test-images)
 - [Troubleshooting](#troubleshooting)
 - [References](#references)
@@ -79,7 +80,28 @@ make compose-up
 make compose-down
 ```
 
-## Deploy to minikube
+## Deploy to minikube with `skaffold`
+
+1. Create the `harbor-scanner-microscanner` secret with MicroScanner token:
+   ```
+   kubectl create secret generic harbor-scanner-microscanner \
+     --from-literal="microscanner-token=${SCANNER_MICROSCANNER_TOKEN}"
+   ```
+2. Create the `harbor-scanner-microscanner` config map with Harbor registry certificate:
+   ```
+   kubectl create configmap harbor-scanner-microscanner \
+     --from-file="harbor-registry-cert=${HARBOR_REGISTRY_CERT}"
+   ```
+3. Build Docker container:
+   ```
+   skaffold build
+   ```
+4. Create `harbor-scanner-microscanner` deployment and service:
+   ```
+   skaffold run --tail
+   ```
+
+## Deploy to minikube with `kubectl`
 
 1. Configure Docker client with Docker Engine in minikube:
    ```

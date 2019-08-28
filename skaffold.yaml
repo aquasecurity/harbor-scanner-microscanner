@@ -1,0 +1,13 @@
+apiVersion: skaffold/v1beta13
+kind: Config
+metadata:
+  name: harbor-scanner-microscanner
+build:
+  local:
+    push: false
+  artifacts:
+  - image: aquasec/harbor-scanner-microscanner
+deploy:
+  kubectl:
+    manifests:
+    - kube/harbor-scanner-microscanner.yaml

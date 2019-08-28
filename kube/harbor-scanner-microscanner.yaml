@@ -18,7 +18,7 @@ spec:
     spec:
       containers:
         - name: main
-          image: aquasec/harbor-scanner-microscanner:poc
+          image: aquasec/harbor-scanner-microscanner
           imagePullPolicy: IfNotPresent
           env:
             - name: "SCANNER_API_ADDR"
