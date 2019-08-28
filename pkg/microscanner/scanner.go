@@ -35,7 +35,7 @@ func NewScanner(authorizer docker.Authorizer, wrapper Wrapper, transformer model
 func (s *scanner) Scan(req harbor.ScanRequest) error {
 	scanID, err := uuid.Parse(req.ID)
 	if err != nil {
-		err = fmt.Errorf("parsing scan request ID: %v", err)
+		return fmt.Errorf("parsing scan request ID: %v", err)
 	}
 
 	err = s.scan(scanID, req)
