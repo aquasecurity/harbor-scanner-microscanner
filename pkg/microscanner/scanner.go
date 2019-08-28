@@ -9,6 +9,7 @@ import (
 	"github.com/aquasecurity/harbor-scanner-microscanner/pkg/store"
 	"github.com/google/uuid"
 	log "github.com/sirupsen/logrus"
+	"os"
 )
 
 // Scanner wraps the Scan method.
@@ -59,9 +60,15 @@ func (s *scanner) scan(scanID uuid.UUID, req harbor.ScanRequest) error {
 	if err != nil {
 		return fmt.Errorf("authorizing request: %v", err)
 	}
+	defer func() {
+		err := os.RemoveAll(dockerConfig)
+		if err != nil {
+			log.Warnf("Error while removing Docker config directory: %v", err)
+		}
+	}()
 
 	imageToScan := fmt.Sprintf("%s/%s@%s", req.RegistryURL, req.ArtifactRepository, req.ArtifactDigest)
-	microScannerReport, err := s.wrapper.Run(imageToScan, *dockerConfig)
+	microScannerReport, err := s.wrapper.Run(imageToScan, dockerConfig)
 	if err != nil {
 		return fmt.Errorf("running microscanner wrapper script: %v", err)
 	}

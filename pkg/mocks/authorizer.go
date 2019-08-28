@@ -13,7 +13,7 @@ func NewAuthorizer() *AuthorizerMock {
 	return &AuthorizerMock{}
 }
 
-func (m *AuthorizerMock) Authorize(req harbor.ScanRequest) (*string, error) {
+func (m *AuthorizerMock) Authorize(req harbor.ScanRequest) (string, error) {
 	args := m.Called(req)
-	return args.Get(0).(*string), args.Error(1)
+	return args.Get(0).(string), args.Error(1)
 }

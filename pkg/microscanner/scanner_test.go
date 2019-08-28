@@ -9,10 +9,14 @@ import (
 	"github.com/aquasecurity/harbor-scanner-microscanner/pkg/store"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"io/ioutil"
 	"testing"
 )
 
 func TestScanner_Scan(t *testing.T) {
+	tmpDir, err := ioutil.TempDir("", "test")
+	require.NoError(t, err)
 	scanID := uuid.New()
 	scanRequest := harbor.ScanRequest{
 		ID:                 scanID.String(),
@@ -51,11 +55,11 @@ func TestScanner_Scan(t *testing.T) {
 			AuthorizerExpectation: &mocks.Expectation{
 				MethodName:      "Authorize",
 				Arguments:       []interface{}{scanRequest},
-				ReturnArguments: []interface{}{stringPtr("/tmp/.docker"), nil},
+				ReturnArguments: []interface{}{tmpDir, nil},
 			},
 			WrapperExpectation: &mocks.Expectation{
 				MethodName:      "Run",
-				Arguments:       []interface{}{"docker.io/library/mongo@sha256:917f5b7f4bef1b35ee90f03033f33a81002511c1e0767fd44276d4bd9cd2fa8e", "/tmp/.docker"},
+				Arguments:       []interface{}{"docker.io/library/mongo@sha256:917f5b7f4bef1b35ee90f03033f33a81002511c1e0767fd44276d4bd9cd2fa8e", tmpDir},
 				ReturnArguments: []interface{}{microScannerReport, nil},
 			},
 			TransformerExpectation: &mocks.Expectation{
@@ -119,8 +123,4 @@ func TestScanner_Scan(t *testing.T) {
 		})
 	}
 
-}
-
-func stringPtr(val string) *string {
-	return &val
 }

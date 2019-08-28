@@ -35,7 +35,7 @@ func (c *Config) write(out io.Writer) error {
 // Authorize creates Docker configuration and writes it to the `config.json` file in a temporary directory.
 // Returns the absolute path to a temporary directory where the Docker configuration file is saved.
 type Authorizer interface {
-	Authorize(req harbor.ScanRequest) (*string, error)
+	Authorize(req harbor.ScanRequest) (string, error)
 }
 
 type authorizer struct {
@@ -46,7 +46,7 @@ func NewAuthorizer() Authorizer {
 	return &authorizer{}
 }
 
-func (a *authorizer) Authorize(req harbor.ScanRequest) (*string, error) {
+func (a *authorizer) Authorize(req harbor.ScanRequest) (string, error) {
 	config := &Config{
 		Auths: map[string]RegistryAuth{
 			req.RegistryURL: {
@@ -59,21 +59,17 @@ func (a *authorizer) Authorize(req harbor.ScanRequest) (*string, error) {
 	}
 	tmpDir, err := ioutil.TempDir("", "docker")
 	if err != nil {
-		return nil, fmt.Errorf("creating temporary directory: %v", err)
+		return "", fmt.Errorf("creating temporary directory: %v", err)
 	}
 	dockerConfig, err := os.Create(filepath.Join(tmpDir, "config.json"))
 	if err != nil {
-		return nil, fmt.Errorf("creating Docker config file: %v", err)
+		return "", fmt.Errorf("creating Docker config file: %v", err)
 	}
 	defer dockerConfig.Close()
 
 	err = config.write(dockerConfig)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
-	return stringPtr(tmpDir), nil
-}
-
-func stringPtr(val string) *string {
-	return &val
+	return tmpDir, nil
 }
