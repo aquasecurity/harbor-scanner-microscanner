@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/aquasecurity/harbor-scanner-microscanner/pkg/model/harbor"
+	log "github.com/sirupsen/logrus"
 	"io"
 	"io/ioutil"
 	"os"
@@ -33,7 +34,7 @@ func (c *Config) write(out io.Writer) error {
 // Authorizer wraps the Authorize method.
 //
 // Authorize creates Docker configuration and writes it to the `config.json` file in a temporary directory.
-// Returns the absolute path to a temporary directory where the Docker configuration file is saved.
+// Returns the absolute path to the configuration file.
 type Authorizer interface {
 	Authorize(req harbor.ScanRequest) (string, error)
 }
@@ -61,15 +62,20 @@ func (a *authorizer) Authorize(req harbor.ScanRequest) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("creating temporary directory: %v", err)
 	}
-	dockerConfig, err := os.Create(filepath.Join(tmpDir, "config.json"))
+	configFileName := filepath.Join(tmpDir, "config.json")
+	configFile, err := os.Create(configFileName)
 	if err != nil {
 		return "", fmt.Errorf("creating Docker config file: %v", err)
 	}
-	defer dockerConfig.Close()
+	defer func() {
+		if err := configFile.Close(); err != nil {
+			log.Warnf("Error while closing Docker config file: %v", err)
+		}
+	}()
 
-	err = config.write(dockerConfig)
+	err = config.write(configFile)
 	if err != nil {
 		return "", err
 	}
-	return tmpDir, nil
+	return configFileName, nil
 }

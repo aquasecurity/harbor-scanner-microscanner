@@ -125,6 +125,9 @@ Line 3`,
 
 	for _, tc := range testCases {
 		t.Run(tc.Name, func(t *testing.T) {
+			if tc.Skip != "" {
+				t.Skip(tc.Skip)
+			}
 			w := &wrapper{}
 			report, err := w.GetScanReport(runLog, tc.Stdout)
 			assert.Equal(t, tc.ExpectedReport, report)

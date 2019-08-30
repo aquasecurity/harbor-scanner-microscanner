@@ -9,6 +9,7 @@ import (
 	"github.com/aquasecurity/harbor-scanner-microscanner/pkg/model/microscanner"
 	log "github.com/sirupsen/logrus"
 	"os/exec"
+	"path/filepath"
 	"strings"
 )
 
@@ -66,7 +67,7 @@ func (w *wrapper) Run(image, dockerConfig string) (*microscanner.ScanReport, err
 	cmd := exec.Command(executable, image)
 	cmd.Stderr = &stderrBuffer
 	cmd.Env = []string{
-		fmt.Sprintf("DOCKER_CONFIG=%s", dockerConfig),
+		fmt.Sprintf("DOCKER_CONFIG=%s", filepath.Dir(dockerConfig)),
 		fmt.Sprintf("DOCKER_HOST=%s", w.cfg.DockerHost),
 		fmt.Sprintf("MICROSCANNER_TOKEN=%s", w.cfg.Token),
 		fmt.Sprintf("MICROSCANNER_OPTIONS=%s", w.cfg.Options),

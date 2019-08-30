@@ -11,11 +11,14 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"io/ioutil"
+	"path/filepath"
 	"testing"
 )
 
 func TestScanner_Scan(t *testing.T) {
 	tmpDir, err := ioutil.TempDir("", "test")
+	configFileName := filepath.Join(tmpDir, "config.json")
+
 	require.NoError(t, err)
 	scanID := uuid.New()
 	scanRequest := harbor.ScanRequest{
@@ -55,11 +58,11 @@ func TestScanner_Scan(t *testing.T) {
 			AuthorizerExpectation: &mocks.Expectation{
 				MethodName:      "Authorize",
 				Arguments:       []interface{}{scanRequest},
-				ReturnArguments: []interface{}{tmpDir, nil},
+				ReturnArguments: []interface{}{configFileName, nil},
 			},
 			WrapperExpectation: &mocks.Expectation{
 				MethodName:      "Run",
-				Arguments:       []interface{}{"docker.io/library/mongo@sha256:917f5b7f4bef1b35ee90f03033f33a81002511c1e0767fd44276d4bd9cd2fa8e", tmpDir},
+				Arguments:       []interface{}{"docker.io/library/mongo@sha256:917f5b7f4bef1b35ee90f03033f33a81002511c1e0767fd44276d4bd9cd2fa8e", configFileName},
 				ReturnArguments: []interface{}{microScannerReport, nil},
 			},
 			TransformerExpectation: &mocks.Expectation{

@@ -12,12 +12,12 @@ import (
 
 func TestAuthorizer_Authorize(t *testing.T) {
 	authorizer := NewAuthorizer()
-	tmpConfigDir, err := authorizer.Authorize(harbor.ScanRequest{
+	configFileName, err := authorizer.Authorize(harbor.ScanRequest{
 		RegistryURL:           "core.harbor.domain",
 		RegistryAuthorization: "JWTTOKENGOESHERE",
 	})
 	require.NoError(t, err)
-	configFile, err := os.Open(filepath.Join(tmpConfigDir, "config.json"))
+	configFile, err := os.Open(configFileName)
 	require.NoError(t, err)
 	bytes, err := ioutil.ReadAll(configFile)
 
@@ -33,6 +33,6 @@ func TestAuthorizer_Authorize(t *testing.T) {
 }`
 
 	assert.JSONEq(t, configJSON, string(bytes))
-	err = os.RemoveAll(tmpConfigDir)
+	err = os.RemoveAll(filepath.Dir(configFileName))
 	require.NoError(t, err)
 }

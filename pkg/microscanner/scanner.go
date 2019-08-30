@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 	log "github.com/sirupsen/logrus"
 	"os"
+	"path/filepath"
 )
 
 // Scanner wraps the Scan method.
@@ -61,9 +62,11 @@ func (s *scanner) scan(scanID uuid.UUID, req harbor.ScanRequest) error {
 		return fmt.Errorf("authorizing request: %v", err)
 	}
 	defer func() {
-		err := os.RemoveAll(dockerConfig)
+		configDir := filepath.Dir(dockerConfig)
+		log.Debugf("Deleting temporary Docker config dir: %s", configDir)
+		err := os.RemoveAll(configDir)
 		if err != nil {
-			log.Warnf("Error while removing Docker config directory: %v", err)
+			log.Warnf("Error while removing Docker config dir: %v", err)
 		}
 	}()
 
