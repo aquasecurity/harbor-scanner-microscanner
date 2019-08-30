@@ -2,15 +2,16 @@ package docker
 
 import (
 	"encoding/json"
-	"fmt"
 	"github.com/aquasecurity/harbor-scanner-microscanner/pkg/model/harbor"
 	log "github.com/sirupsen/logrus"
+	"golang.org/x/xerrors"
 	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 )
 
+// RegistryAuth wraps Docker registry access token.
 type RegistryAuth struct {
 	Token string `json:"registrytoken"`
 }
@@ -25,7 +26,7 @@ type Config struct {
 func (c *Config) write(out io.Writer) error {
 	bytes, err := json.Marshal(c)
 	if err != nil {
-		return fmt.Errorf("marshalling config: %v", err)
+		return xerrors.Errorf("marshalling config: %w", err)
 	}
 	_, err = out.Write(bytes)
 	return err
@@ -48,6 +49,21 @@ func NewAuthorizer() Authorizer {
 }
 
 func (a *authorizer) Authorize(req harbor.ScanRequest) (string, error) {
+	tmpDir, err := ioutil.TempDir("", "docker")
+	if err != nil {
+		return "", xerrors.Errorf("creating temporary directory: %w", err)
+	}
+	configFileName := filepath.Join(tmpDir, "config.json")
+	configFile, err := os.Create(configFileName)
+	if err != nil {
+		return "", xerrors.Errorf("creating Docker config file: %w", err)
+	}
+	defer func() {
+		if err := configFile.Close(); err != nil {
+			log.WithError(err).Warn("Error while closing Docker config file")
+		}
+	}()
+
 	config := &Config{
 		Auths: map[string]RegistryAuth{
 			req.RegistryURL: {
@@ -58,24 +74,10 @@ func (a *authorizer) Authorize(req harbor.ScanRequest) (string, error) {
 			"User-Agent": "Harbor Scanner Microscanner",
 		},
 	}
-	tmpDir, err := ioutil.TempDir("", "docker")
-	if err != nil {
-		return "", fmt.Errorf("creating temporary directory: %v", err)
-	}
-	configFileName := filepath.Join(tmpDir, "config.json")
-	configFile, err := os.Create(configFileName)
-	if err != nil {
-		return "", fmt.Errorf("creating Docker config file: %v", err)
-	}
-	defer func() {
-		if err := configFile.Close(); err != nil {
-			log.Warnf("Error while closing Docker config file: %v", err)
-		}
-	}()
 
 	err = config.write(configFile)
 	if err != nil {
-		return "", err
+		return "", xerrors.Errorf("saving Docker config file: %w", err)
 	}
 	return configFileName, nil
 }
