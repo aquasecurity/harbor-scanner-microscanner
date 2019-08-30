@@ -33,6 +33,7 @@ See [Pluggable Image Vulnerability Scanning Proposal][image-vulnerability-scanni
    {
      "id": "${SCAN_REQUEST_ID}",
      "registry_url": "docker.io",
+     "registry_authorization": "${REGISTRY_AUTHORIZATION}",
      "artifact_repository": "library/mongo",
      "artifact_digest": "sha256:917f5b7f4bef1b35ee90f03033f33a81002511c1e0767fd44276d4bd9cd2fa8e"
    }

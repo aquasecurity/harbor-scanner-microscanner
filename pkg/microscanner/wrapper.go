@@ -13,11 +13,16 @@ import (
 )
 
 const (
-	wrapperScript     = "microscanner-wrapper.sh"
+	wrapperScript = "microscanner-wrapper.sh"
+
 	fieldImage        = "image"
 	fieldDockerConfig = "docker_config"
 	fieldExitCode     = "exit_code"
 	fieldStdErr       = "std_err"
+
+	overridingErrorCodeMessage = "\u001b[91mOverriding non-zero error code due to --continue-on-failure setting\n\u001b[0m"
+	stdoutJSONStartMarker      = "{\n  \"scan_started\":"
+	stdoutJSONEndMarker        = "Removing intermediate container"
 )
 
 // Wrapper wraps the Run method.
@@ -84,21 +89,39 @@ func (w *wrapper) Run(image, dockerConfig string) (*microscanner.ScanReport, err
 		fieldStdErr:   stderrBuffer.String(),
 	}).Debug("Wrapper script finished")
 
-	runLog.Debug("Extracting JSON from standard output")
-	out := w.extractJSON(stdout)
-
-	runLog.Debug("Unmarshalling extracted JSON to MicroScanner report")
-	var sr microscanner.ScanReport
-	err = json.Unmarshal([]byte(out), &sr)
-	if err != nil {
-		return nil, fmt.Errorf("unmarshalling microscanner scan report: %v", err)
-	}
-	return &sr, nil
+	return w.GetScanReport(runLog, string(stdout))
 }
 
-func (w *wrapper) extractJSON(stdout []byte) string {
-	output := string(stdout)
-	start := strings.Index(output, "{\n  \"scan_started\":")
-	end := strings.LastIndex(output, "Removing intermediate container")
-	return output[start:end]
+// GetScanReport parses the standard output of the microscanner-wrapper.sh script, extracts a scan report JSON,
+// and returns it as ScanReport.
+func (w *wrapper) GetScanReport(runLog *log.Entry, stdout string) (*microscanner.ScanReport, error) {
+	out, err := w.extractJSON(runLog, stdout)
+	if err != nil {
+		return nil, fmt.Errorf("extracting JSON from stdout: %v", err)
+	}
+
+	var report microscanner.ScanReport
+	err = json.Unmarshal([]byte(out), &report)
+	if err != nil {
+		return nil, fmt.Errorf("unmarshalling scan report: %v", err)
+	}
+	return &report, nil
+}
+
+func (w *wrapper) extractJSON(runLog *log.Entry, output string) (string, error) {
+	if found := strings.Index(output, overridingErrorCodeMessage); found != -1 {
+		runLog.Debugf("Removing intermittent message from stdout %s", overridingErrorCodeMessage)
+		output = strings.Replace(output, overridingErrorCodeMessage, "", -1)
+	}
+
+	start := strings.Index(output, stdoutJSONStartMarker)
+	if start == -1 {
+		return "", errors.New("cannot find JSON start marker")
+	}
+	end := strings.LastIndex(output, stdoutJSONEndMarker)
+	if end == -1 {
+		return "", errors.New("cannot find JSON end marker")
+	}
+
+	return output[start:end], nil
 }
