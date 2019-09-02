@@ -75,9 +75,9 @@ func (rs *redisStore) GetScanJob(scanID uuid.UUID) (*job.ScanJob, error) {
 
 func (rs *redisStore) UpdateScanJobStatus(scanID uuid.UUID, currentStatus, newStatus job.ScanJobStatus) error {
 	log.WithFields(log.Fields{
-		"scan_job": scanID.String(),
+		"scan_job":       scanID.String(),
 		"current_status": currentStatus.String(),
-		"new_status": newStatus.String(),
+		"new_status":     newStatus.String(),
 	}).Debug("Updating job status")
 
 	scanJob, err := rs.GetScanJob(scanID)

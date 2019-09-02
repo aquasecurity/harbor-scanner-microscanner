@@ -1,17 +1,25 @@
 package microscanner
 
 import (
+	"errors"
 	"github.com/aquasecurity/harbor-scanner-microscanner/pkg/job"
 	"github.com/aquasecurity/harbor-scanner-microscanner/pkg/mocks"
 	"github.com/aquasecurity/harbor-scanner-microscanner/pkg/model/harbor"
 	"github.com/aquasecurity/harbor-scanner-microscanner/pkg/model/microscanner"
 	"github.com/aquasecurity/harbor-scanner-microscanner/pkg/store"
 	"github.com/google/uuid"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"io/ioutil"
+	"path/filepath"
 	"testing"
 )
 
 func TestScanner_Scan(t *testing.T) {
+	tmpDir, err := ioutil.TempDir("", "test")
+	configFileName := filepath.Join(tmpDir, "config.json")
+
+	require.NoError(t, err)
 	scanID := uuid.New()
 	scanRequest := harbor.ScanRequest{
 		ID:                 scanID.String(),
@@ -19,29 +27,103 @@ func TestScanner_Scan(t *testing.T) {
 		ArtifactRepository: "library/mongo",
 		ArtifactDigest:     "sha256:917f5b7f4bef1b35ee90f03033f33a81002511c1e0767fd44276d4bd9cd2fa8e",
 	}
-	microScannerReport := &microscanner.ScanReport{}
 	harborReport := &harbor.VulnerabilityReport{}
+	microScannerReport := &microscanner.ScanReport{}
 	scanReports := &store.ScanReports{
 		HarborVulnerabilityReport: harborReport,
 		MicroScannerReport:        microScannerReport,
 	}
 
-	wrapper := mocks.NewWrapperMock()
-	transformer := mocks.NewTransformer()
-	dataStore := mocks.NewDataStore()
+	testCases := []struct {
+		Name string
+		Skip *string
 
-	dataStore.On("UpdateScanJobStatus", scanID, job.Queued, job.Pending).Return(nil)
-	wrapper.On("Run", "docker.io/library/mongo@sha256:917f5b7f4bef1b35ee90f03033f33a81002511c1e0767fd44276d4bd9cd2fa8e").Return(microScannerReport, nil)
-	transformer.On("Transform", microScannerReport).Return(harborReport, nil)
-	dataStore.On("SaveScanReports", scanID, scanReports).Return(nil)
-	dataStore.On("UpdateScanJobStatus", scanID, job.Pending, job.Finished).Return(nil)
+		ScanRequest            harbor.ScanRequest
+		MicroScannerReport     *microscanner.ScanReport
+		HarborReport           *harbor.VulnerabilityReport
+		ScanReports            *store.ScanReports
+		AuthorizerExpectation  *mocks.Expectation
+		WrapperExpectation     *mocks.Expectation
+		TransformerExpectation *mocks.Expectation
+		DataStoreExpectations  []*mocks.Expectation
 
-	scanner := NewScanner(wrapper, transformer, dataStore)
+		ExpectedError error
+	}{
+		{
+			Name:               "Happy path",
+			ScanRequest:        scanRequest,
+			MicroScannerReport: microScannerReport,
+			HarborReport:       harborReport,
+			ScanReports:        scanReports,
+			AuthorizerExpectation: &mocks.Expectation{
+				MethodName:      "Authorize",
+				Arguments:       []interface{}{scanRequest},
+				ReturnArguments: []interface{}{configFileName, nil},
+			},
+			WrapperExpectation: &mocks.Expectation{
+				MethodName:      "Run",
+				Arguments:       []interface{}{"docker.io/library/mongo@sha256:917f5b7f4bef1b35ee90f03033f33a81002511c1e0767fd44276d4bd9cd2fa8e", configFileName},
+				ReturnArguments: []interface{}{microScannerReport, nil},
+			},
+			TransformerExpectation: &mocks.Expectation{
+				MethodName:      "Transform",
+				Arguments:       []interface{}{microScannerReport},
+				ReturnArguments: []interface{}{harborReport, nil},
+			},
+			DataStoreExpectations: []*mocks.Expectation{
+				{
+					MethodName:      "UpdateScanJobStatus",
+					Arguments:       []interface{}{scanID, job.Queued, job.Pending},
+					ReturnArguments: []interface{}{nil},
+				},
+				{
+					MethodName:      "SaveScanReports",
+					Arguments:       []interface{}{scanID, scanReports},
+					ReturnArguments: []interface{}{nil},
+				},
+				{
+					MethodName:      "UpdateScanJobStatus",
+					Arguments:       []interface{}{scanID, job.Pending, job.Finished},
+					ReturnArguments: []interface{}{nil},
+				},
+			},
+			ExpectedError: nil,
+		},
+		{
+			Name: "Should return error when scan ID is not a valid UUID",
+			ScanRequest: harbor.ScanRequest{
+				ID: "INVALID_UUID",
+			},
+			ExpectedError: errors.New("parsing scan request ID: invalid UUID length: 12"),
+		},
+	}
 
-	err := scanner.Scan(scanRequest)
-	require.NoError(t, err)
+	for _, tc := range testCases {
+		t.Run(tc.Name, func(t *testing.T) {
+			if tc.Skip != nil {
+				t.Skip(*tc.Skip)
+			}
 
-	wrapper.AssertExpectations(t)
-	transformer.AssertExpectations(t)
-	dataStore.AssertExpectations(t)
+			authorizer := mocks.NewAuthorizer()
+			wrapper := mocks.NewWrapper()
+			transformer := mocks.NewTransformer()
+			dataStore := mocks.NewDataStore()
+
+			mocks.ApplyExpectations(t, authorizer, tc.AuthorizerExpectation)
+			mocks.ApplyExpectations(t, wrapper, tc.WrapperExpectation)
+			mocks.ApplyExpectations(t, transformer, tc.TransformerExpectation)
+			mocks.ApplyExpectations(t, dataStore, tc.DataStoreExpectations...)
+
+			scanner := NewScanner(authorizer, wrapper, transformer, dataStore)
+
+			err := scanner.Scan(tc.ScanRequest)
+			assert.Equal(t, tc.ExpectedError, err)
+
+			authorizer.AssertExpectations(t)
+			wrapper.AssertExpectations(t)
+			transformer.AssertExpectations(t)
+			dataStore.AssertExpectations(t)
+		})
+	}
+
 }

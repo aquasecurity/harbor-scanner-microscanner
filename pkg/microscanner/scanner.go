@@ -2,12 +2,15 @@ package microscanner
 
 import (
 	"fmt"
+	"github.com/aquasecurity/harbor-scanner-microscanner/pkg/docker"
 	"github.com/aquasecurity/harbor-scanner-microscanner/pkg/job"
 	"github.com/aquasecurity/harbor-scanner-microscanner/pkg/model"
 	"github.com/aquasecurity/harbor-scanner-microscanner/pkg/model/harbor"
 	"github.com/aquasecurity/harbor-scanner-microscanner/pkg/store"
 	"github.com/google/uuid"
 	log "github.com/sirupsen/logrus"
+	"os"
+	"path/filepath"
 )
 
 // Scanner wraps the Scan method.
@@ -16,13 +19,15 @@ type Scanner interface {
 }
 
 type scanner struct {
+	authorizer  docker.Authorizer
 	wrapper     Wrapper
 	transformer model.Transformer
 	dataStore   store.DataStore
 }
 
-func NewScanner(wrapper Wrapper, transformer model.Transformer, dataStore store.DataStore) Scanner {
+func NewScanner(authorizer docker.Authorizer, wrapper Wrapper, transformer model.Transformer, dataStore store.DataStore) Scanner {
 	return &scanner{
+		authorizer:  authorizer,
 		transformer: transformer,
 		dataStore:   dataStore,
 		wrapper:     wrapper,
@@ -32,7 +37,7 @@ func NewScanner(wrapper Wrapper, transformer model.Transformer, dataStore store.
 func (s *scanner) Scan(req harbor.ScanRequest) error {
 	scanID, err := uuid.Parse(req.ID)
 	if err != nil {
-		err = fmt.Errorf("parsing scan request ID: %v", err)
+		return fmt.Errorf("parsing scan request ID: %v", err)
 	}
 
 	err = s.scan(scanID, req)
@@ -52,8 +57,21 @@ func (s *scanner) scan(scanID uuid.UUID, req harbor.ScanRequest) error {
 		return fmt.Errorf("updating scan job status: %v", err)
 	}
 
+	dockerConfig, err := s.authorizer.Authorize(req)
+	if err != nil {
+		return fmt.Errorf("authorizing request: %v", err)
+	}
+	defer func() {
+		configDir := filepath.Dir(dockerConfig)
+		log.Debugf("Deleting temporary Docker config dir: %s", configDir)
+		err := os.RemoveAll(configDir)
+		if err != nil {
+			log.Warnf("Error while removing Docker config dir: %v", err)
+		}
+	}()
+
 	imageToScan := fmt.Sprintf("%s/%s@%s", req.RegistryURL, req.ArtifactRepository, req.ArtifactDigest)
-	microScannerReport, err := s.wrapper.Run(imageToScan)
+	microScannerReport, err := s.wrapper.Run(imageToScan, dockerConfig)
 	if err != nil {
 		return fmt.Errorf("running microscanner wrapper script: %v", err)
 	}

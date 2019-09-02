@@ -9,11 +9,11 @@ type WrapperMock struct {
 	mock.Mock
 }
 
-func NewWrapperMock() *WrapperMock {
+func NewWrapper() *WrapperMock {
 	return &WrapperMock{}
 }
 
-func (m *WrapperMock) Run(image string) (*microscanner.ScanReport, error) {
-	args := m.Called(image)
+func (m *WrapperMock) Run(image, dockerConfig string) (*microscanner.ScanReport, error) {
+	args := m.Called(image, dockerConfig)
 	return args.Get(0).(*microscanner.ScanReport), args.Error(1)
 }
