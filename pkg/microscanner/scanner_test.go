@@ -23,7 +23,7 @@ func TestScanner_Scan(t *testing.T) {
 	scanID := uuid.New()
 	scanRequest := harbor.ScanRequest{
 		ID:                 scanID.String(),
-		RegistryURL:        "docker.io",
+		RegistryURL:        "https://core.harbor.domain:433",
 		ArtifactRepository: "library/mongo",
 		ArtifactDigest:     "sha256:917f5b7f4bef1b35ee90f03033f33a81002511c1e0767fd44276d4bd9cd2fa8e",
 	}
@@ -62,7 +62,7 @@ func TestScanner_Scan(t *testing.T) {
 			},
 			WrapperExpectation: &mocks.Expectation{
 				MethodName:      "Run",
-				Arguments:       []interface{}{"docker.io/library/mongo@sha256:917f5b7f4bef1b35ee90f03033f33a81002511c1e0767fd44276d4bd9cd2fa8e", configFileName},
+				Arguments:       []interface{}{"core.harbor.domain:433/library/mongo@sha256:917f5b7f4bef1b35ee90f03033f33a81002511c1e0767fd44276d4bd9cd2fa8e", configFileName},
 				ReturnArguments: []interface{}{microScannerReport, nil},
 			},
 			TransformerExpectation: &mocks.Expectation{
@@ -126,4 +126,42 @@ func TestScanner_Scan(t *testing.T) {
 		})
 	}
 
+}
+
+func TestScanner_ToImageRef(t *testing.T) {
+	testCases := []struct {
+		Request  harbor.ScanRequest
+		ImageRef string
+	}{
+		{
+			Request: harbor.ScanRequest{
+				RegistryURL:        "https://core.harbor.domain",
+				ArtifactRepository: "library/mongo",
+				ArtifactDigest:     "test:ABC",
+			},
+			ImageRef: "core.harbor.domain/library/mongo@test:ABC",
+		},
+		{
+			Request: harbor.ScanRequest{
+				RegistryURL:        "https://core.harbor.domain:443",
+				ArtifactRepository: "library/nginx",
+				ArtifactDigest:     "test:DEF",
+			},
+			ImageRef: "core.harbor.domain:443/library/nginx@test:DEF",
+		},
+		{
+			Request: harbor.ScanRequest{
+				RegistryURL:        "http://harbor-harbor-registry:5000",
+				ArtifactRepository: "scanners/mongo",
+				ArtifactDigest:     "test:GHI",
+			},
+			ImageRef: "harbor-harbor-registry:5000/scanners/mongo@test:GHI",
+		},
+	}
+	for _, tc := range testCases {
+		s := scanner{}
+		imageRef, err := s.ToImageRef(tc.Request)
+		require.NoError(t, err)
+		assert.Equal(t, tc.ImageRef, imageRef)
+	}
 }
