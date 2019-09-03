@@ -10,5 +10,6 @@ require (
 	github.com/robfig/cron v1.2.0 // indirect
 	github.com/sirupsen/logrus v1.4.2
 	github.com/stretchr/testify v1.3.0
+	github.com/testcontainers/testcontainers-go v0.0.5
 	golang.org/x/xerrors v0.0.0-20190717185122-a985d3407aa7
 )

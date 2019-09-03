@@ -2,6 +2,8 @@ language: go
 env:
   matrix:
     - GO111MODULE=on
+services:
+  - docker
 go:
   - 1.12.x
 git:
@@ -10,5 +12,6 @@ notifications:
   email: false
 script:
   - make test
+  - make test-integration
 after_success:
   - bash <(curl -s https://codecov.io/bash)
