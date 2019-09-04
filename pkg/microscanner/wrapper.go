@@ -30,7 +30,7 @@ const (
 //
 // Run runs a MicroScanner wrapper script and parses the standard output to ScanReport.
 type Wrapper interface {
-	Run(image, dockerConfig string) (*microscanner.ScanReport, error)
+	Run(imageRef, dockerConfig string) (*microscanner.ScanReport, error)
 }
 
 type wrapper struct {
@@ -45,13 +45,13 @@ func NewWrapper(cfg *etc.MicroScannerConfig) Wrapper {
 }
 
 // Run runs the microscanner-wrapper.sh script to scan the given image and return ScanReport.
-func (w *wrapper) Run(image, dockerConfig string) (*microscanner.ScanReport, error) {
-	if image == "" {
+func (w *wrapper) Run(imageRef, dockerConfig string) (*microscanner.ScanReport, error) {
+	if imageRef == "" {
 		return nil, errors.New("image must not be blank")
 	}
 
 	runLog := log.WithFields(log.Fields{
-		fieldImage:        image,
+		fieldImage:        imageRef,
 		fieldDockerConfig: dockerConfig,
 	})
 
@@ -64,7 +64,7 @@ func (w *wrapper) Run(image, dockerConfig string) (*microscanner.ScanReport, err
 
 	stderrBuffer := bytes.Buffer{}
 
-	cmd := exec.Command(executable, image)
+	cmd := exec.Command(executable, imageRef)
 	cmd.Stderr = &stderrBuffer
 	cmd.Env = []string{
 		fmt.Sprintf("DOCKER_CONFIG=%s", filepath.Dir(dockerConfig)),

@@ -9,6 +9,8 @@ import (
 	"github.com/aquasecurity/harbor-scanner-microscanner/pkg/store"
 	"github.com/google/uuid"
 	log "github.com/sirupsen/logrus"
+	"golang.org/x/xerrors"
+	"net/url"
 	"os"
 	"path/filepath"
 )
@@ -70,8 +72,12 @@ func (s *scanner) scan(scanID uuid.UUID, req harbor.ScanRequest) error {
 		}
 	}()
 
-	imageToScan := fmt.Sprintf("%s/%s@%s", req.RegistryURL, req.ArtifactRepository, req.ArtifactDigest)
-	microScannerReport, err := s.wrapper.Run(imageToScan, dockerConfig)
+	imageRef, err := s.ToImageRef(req)
+	if err != nil {
+		return fmt.Errorf("getting image ref: %v", err)
+	}
+
+	microScannerReport, err := s.wrapper.Run(imageRef, dockerConfig)
 	if err != nil {
 		return fmt.Errorf("running microscanner wrapper script: %v", err)
 	}
@@ -96,4 +102,14 @@ func (s *scanner) scan(scanID uuid.UUID, req harbor.ScanRequest) error {
 	}
 
 	return nil
+}
+
+// ToImageRef returns Docker image reference for the given ScanRequest.
+// Example: core.harbor.domain/scanners/mysql@sha256:3b00a364fb74246ca119d16111eb62f7302b2ff66d51e373c2bb209f8a1f3b9e
+func (s *scanner) ToImageRef(req harbor.ScanRequest) (string, error) {
+	registryURL, err := url.Parse(req.RegistryURL)
+	if err != nil {
+		return "", xerrors.Errorf("parsing registry URL: %w", err)
+	}
+	return fmt.Sprintf("%s/%s@%s", registryURL.Host, req.ArtifactRepository, req.ArtifactDigest), nil
 }
