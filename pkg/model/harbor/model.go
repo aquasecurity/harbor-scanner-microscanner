@@ -49,6 +49,8 @@ type Capability struct {
 	ReportMIMETypes   []string `json:"report_mime_types"`
 }
 
+// Error holds the information about an error, including metadata about its JSON structure.
 type Error struct {
-	Message string `json:"message"`
+	HTTPCode int    `json:"-"`
+	Message  string `json:"message"`
 }

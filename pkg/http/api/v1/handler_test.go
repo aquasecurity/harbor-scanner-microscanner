@@ -1,6 +1,7 @@
 package v1
 
 import (
+	"errors"
 	"fmt"
 	"github.com/aquasecurity/harbor-scanner-microscanner/pkg/job"
 	"github.com/aquasecurity/harbor-scanner-microscanner/pkg/mocks"
@@ -23,33 +24,13 @@ type Request struct {
 
 type Response struct {
 	Code int
-	Body *string
+	Body string
 }
 
 type Expectation struct {
 	MethodName      string
 	Arguments       []interface{}
 	ReturnArguments []interface{}
-}
-
-func TestRequestHandler_GetHealth(t *testing.T) {
-	// given
-	scanner := mocks.NewScanner()
-	jobQueue := mocks.NewJobQueue()
-	dataStore := mocks.NewDataStore()
-	handler := NewAPIHandler(jobQueue, dataStore)
-	// and
-	request := httptest.NewRequest(http.MethodGet, "/api/v1/health", nil)
-	response := httptest.NewRecorder()
-
-	// when
-	handler.ServeHTTP(response, request)
-
-	// then
-	assert.Equal(t, http.StatusOK, response.Code)
-
-	scanner.AssertExpectations(t)
-	jobQueue.AssertExpectations(t)
 }
 
 func TestRequestHandler_GetMetadata(t *testing.T) {
@@ -65,7 +46,7 @@ func TestRequestHandler_GetMetadata(t *testing.T) {
 		},
 		Response: Response{
 			Code: http.StatusOK,
-			Body: nil,
+			Body: "",
 		},
 	}}
 
@@ -92,40 +73,162 @@ func TestRequestHandler_GetMetadata(t *testing.T) {
 }
 
 func TestRequestHandler_AcceptScanRequest(t *testing.T) {
-	jobQueue := mocks.NewJobQueue()
-	dataStore := mocks.NewDataStore()
-
-	jobQueue.On("EnqueueScanJob", harbor.ScanRequest{
+	scanRequest := harbor.ScanRequest{
 		ID:                    "ABC",
-		RegistryURL:           "docker.io",
+		RegistryURL:           "https://core.harbor.domain",
 		RegistryAuthorization: "Bearer: SECRET",
 		ArtifactRepository:    "library/mongo",
 		ArtifactDigest:        "sha256:917f5b7f4bef1b35ee90f03033f33a81002511c1e0767fd44276d4bd9cd2fa8e",
-	}).Return(&job.ScanJob{ID: "123"}, nil)
+	}
 
-	handler := NewAPIHandler(jobQueue, dataStore)
-
-	scanRequest := `{
+	scanRequestJSON := `{
   "id": "ABC",
-  "registry_url": "docker.io",
+  "registry_url": "https://core.harbor.domain",
   "registry_authorization": "Bearer: SECRET",
   "artifact_repository": "library/mongo",
   "artifact_digest": "sha256:917f5b7f4bef1b35ee90f03033f33a81002511c1e0767fd44276d4bd9cd2fa8e"
 }
 `
 
-	request := httptest.NewRequest(http.MethodPost, "/api/v1/scan", strings.NewReader(scanRequest))
-	request.Header.Set(headerContentType, mimeTypeScanRequest)
-	response := httptest.NewRecorder()
+	testCases := []struct {
+		Name string
 
-	// when
-	handler.ServeHTTP(response, request)
+		ScanRequestJSON     string
+		JobQueueExpectation *mocks.Expectation
 
-	// then
-	assert.Equal(t, http.StatusAccepted, response.Code)
+		ExpectedHTTPStatus int
+		ExpectedResponse   string
+	}{
+		{
+			Name:            "Should accept a scan request",
+			ScanRequestJSON: scanRequestJSON,
+			JobQueueExpectation: &mocks.Expectation{
+				MethodName:      "EnqueueScanJob",
+				Arguments:       []interface{}{scanRequest},
+				ReturnArguments: []interface{}{&job.ScanJob{ID: "job:123"}, nil},
+			},
+			ExpectedHTTPStatus: http.StatusAccepted,
+		},
+		{
+			Name:            "Should return error when enqueuing scan job fails",
+			ScanRequestJSON: scanRequestJSON,
+			JobQueueExpectation: &mocks.Expectation{
+				MethodName:      "EnqueueScanJob",
+				Arguments:       []interface{}{scanRequest},
+				ReturnArguments: []interface{}{(*job.ScanJob)(nil), errors.New("queue failed")},
+			},
+			ExpectedHTTPStatus: http.StatusInternalServerError,
+			ExpectedResponse:   `{"error": {"message": "enqueuing scan job: queue failed"}}`,
+		},
+		{
+			Name:               "Should return error when scan request cannot be parsed",
+			ScanRequestJSON:    "THIS AIN'T PARSE",
+			ExpectedHTTPStatus: http.StatusBadRequest,
+			ExpectedResponse:   `{"error": {"message": "unmarshalling scan request: invalid character 'T' looking for beginning of value"}}`,
+		},
+		{
+			Name:               "Should return error when scan request cannot be processed",
+			ScanRequestJSON:    `{"id": "ABC", "registry_url": "INVALID URL"}`,
+			ExpectedHTTPStatus: http.StatusUnprocessableEntity,
+			ExpectedResponse:   `{"error": {"message": "invalid registry_url"}}`,
+		},
+	}
 
-	jobQueue.AssertExpectations(t)
-	dataStore.AssertExpectations(t)
+	for _, tc := range testCases {
+		t.Run(tc.Name, func(t *testing.T) {
+			jobQueue := mocks.NewJobQueue()
+			dataStore := mocks.NewDataStore()
+
+			mocks.ApplyExpectations(t, jobQueue, tc.JobQueueExpectation)
+
+			handler := NewAPIHandler(jobQueue, dataStore)
+
+			request := httptest.NewRequest(http.MethodPost, "/api/v1/scan", strings.NewReader(tc.ScanRequestJSON))
+			request.Header.Set(HeaderContentType, mimeTypeScanRequest)
+			response := httptest.NewRecorder()
+
+			// when
+			handler.ServeHTTP(response, request)
+
+			// then
+			assert.Equal(t, tc.ExpectedHTTPStatus, response.Code)
+			if tc.ExpectedResponse != "" {
+				assert.JSONEq(t, tc.ExpectedResponse, response.Body.String())
+			}
+
+			jobQueue.AssertExpectations(t)
+			dataStore.AssertExpectations(t)
+		})
+	}
+}
+
+func TestRequestHandler_ValidateScanRequest(t *testing.T) {
+	testCases := []struct {
+		Name          string
+		Request       harbor.ScanRequest
+		ExpectedError *harbor.Error
+	}{
+		{
+			Name:    "Should return error when ID is blank",
+			Request: harbor.ScanRequest{},
+			ExpectedError: &harbor.Error{
+				HTTPCode: http.StatusUnprocessableEntity,
+				Message:  "missing id",
+			},
+		},
+		{
+			Name: "Should return error when Registry URL is blank",
+			Request: harbor.ScanRequest{
+				ID: uuid.New().String(),
+			},
+			ExpectedError: &harbor.Error{
+				HTTPCode: http.StatusUnprocessableEntity,
+				Message:  "missing registry_url",
+			},
+		},
+		{
+			Name: "Should return error when Registry URL is invalid",
+			Request: harbor.ScanRequest{
+				ID:          uuid.New().String(),
+				RegistryURL: "INVALID URL",
+			},
+			ExpectedError: &harbor.Error{
+				HTTPCode: http.StatusUnprocessableEntity,
+				Message:  "invalid registry_url",
+			},
+		},
+		{
+			Name: "Should return error when artifact repository is blank",
+			Request: harbor.ScanRequest{
+				ID:          uuid.New().String(),
+				RegistryURL: "https://core.harbor.domain",
+			},
+			ExpectedError: &harbor.Error{
+				HTTPCode: http.StatusUnprocessableEntity,
+				Message:  "missing artifact_repository",
+			},
+		},
+		{
+			Name: "Should return error when artifact digest is blank",
+			Request: harbor.ScanRequest{
+				ID:                 uuid.New().String(),
+				RegistryURL:        "https://core.harbor.domain",
+				ArtifactRepository: "library/mongo",
+			},
+			ExpectedError: &harbor.Error{
+				HTTPCode: http.StatusUnprocessableEntity,
+				Message:  "missing artifact_digest",
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.Name, func(t *testing.T) {
+			handler := requestHandler{}
+			validationError := handler.ValidateScanRequest(tc.Request)
+			assert.Equal(t, tc.ExpectedError, validationError)
+		})
+	}
 }
 
 func TestRequestHandler_GetScanReport(t *testing.T) {
@@ -322,7 +425,7 @@ func TestRequestHandler_GetScanReport(t *testing.T) {
 			},
 			Response: Response{
 				Code: http.StatusOK,
-				Body: stringptr(harborReportJSON),
+				Body: harborReportJSON,
 			},
 		},
 		{
@@ -346,7 +449,7 @@ func TestRequestHandler_GetScanReport(t *testing.T) {
 			},
 			Response: Response{
 				Code: http.StatusOK,
-				Body: stringptr(harborReportJSON),
+				Body: harborReportJSON,
 			},
 		},
 		{
@@ -372,7 +475,7 @@ func TestRequestHandler_GetScanReport(t *testing.T) {
 			},
 			Response: Response{
 				Code: http.StatusOK,
-				Body: stringptr(microScannerReportJSON),
+				Body: microScannerReportJSON,
 			},
 		},
 	}
@@ -407,8 +510,8 @@ func TestRequestHandler_GetScanReport(t *testing.T) {
 
 			// then
 			assert.Equal(t, td.Response.Code, response.Code)
-			if td.Response.Body != nil {
-				assert.JSONEq(t, *td.Response.Body, response.Body.String())
+			if td.Response.Body != "" {
+				assert.JSONEq(t, td.Response.Body, response.Body.String())
 			}
 
 			jobQueue.AssertExpectations(t)
@@ -426,8 +529,4 @@ func NewHTTPRequest(request Request) *http.Request {
 		}
 	}
 	return httpRequest
-}
-
-func stringptr(val string) *string {
-	return &val
 }
