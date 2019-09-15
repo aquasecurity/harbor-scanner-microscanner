@@ -125,32 +125,32 @@ func (h *requestHandler) ValidateScanRequest(req harbor.ScanRequest) *harbor.Err
 		}
 	}
 
-	if req.RegistryURL == "" {
+	if req.Registry.URL == "" {
 		return &harbor.Error{
 			HTTPCode: http.StatusUnprocessableEntity,
-			Message:  "missing registry_url",
+			Message:  "missing registry.url",
 		}
 	}
 
-	_, err := url.ParseRequestURI(req.RegistryURL)
+	_, err := url.ParseRequestURI(req.Registry.URL)
 	if err != nil {
 		return &harbor.Error{
 			HTTPCode: http.StatusUnprocessableEntity,
-			Message:  "invalid registry_url",
+			Message:  "invalid registry.url",
 		}
 	}
 
-	if req.ArtifactRepository == "" {
+	if req.Artifact.Repository == "" {
 		return &harbor.Error{
 			HTTPCode: http.StatusUnprocessableEntity,
-			Message:  "missing artifact_repository",
+			Message:  "missing artifact.repository",
 		}
 	}
 
-	if req.ArtifactDigest == "" {
+	if req.Artifact.Digest == "" {
 		return &harbor.Error{
 			HTTPCode: http.StatusUnprocessableEntity,
-			Message:  "missing artifact_digest",
+			Message:  "missing artifact.digest",
 		}
 	}
 

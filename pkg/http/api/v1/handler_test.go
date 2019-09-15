@@ -74,19 +74,27 @@ func TestRequestHandler_GetMetadata(t *testing.T) {
 
 func TestRequestHandler_AcceptScanRequest(t *testing.T) {
 	scanRequest := harbor.ScanRequest{
-		ID:                    "ABC",
-		RegistryURL:           "https://core.harbor.domain",
-		RegistryAuthorization: "Bearer: SECRET",
-		ArtifactRepository:    "library/mongo",
-		ArtifactDigest:        "sha256:917f5b7f4bef1b35ee90f03033f33a81002511c1e0767fd44276d4bd9cd2fa8e",
+		ID: "ABC",
+		Registry: harbor.Registry{
+			URL:           "https://core.harbor.domain",
+			Authorization: "Bearer: SECRET",
+		},
+		Artifact: harbor.Artifact{
+			Repository: "library/mongo",
+			Digest:     "sha256:917f5b7f4bef1b35ee90f03033f33a81002511c1e0767fd44276d4bd9cd2fa8e",
+		},
 	}
 
 	scanRequestJSON := `{
   "id": "ABC",
-  "registry_url": "https://core.harbor.domain",
-  "registry_authorization": "Bearer: SECRET",
-  "artifact_repository": "library/mongo",
-  "artifact_digest": "sha256:917f5b7f4bef1b35ee90f03033f33a81002511c1e0767fd44276d4bd9cd2fa8e"
+  "registry": {
+    "url": "https://core.harbor.domain",
+    "authorization": "Bearer: SECRET"
+  },
+  "artifact": {
+    "repository": "library/mongo",
+    "digest": "sha256:917f5b7f4bef1b35ee90f03033f33a81002511c1e0767fd44276d4bd9cd2fa8e"
+  }
 }
 `
 
@@ -128,9 +136,9 @@ func TestRequestHandler_AcceptScanRequest(t *testing.T) {
 		},
 		{
 			Name:               "Should return error when scan request cannot be processed",
-			ScanRequestJSON:    `{"id": "ABC", "registry_url": "INVALID URL"}`,
+			ScanRequestJSON:    `{"id": "ABC", "registry": {"url": "INVALID URL"}}`,
 			ExpectedHTTPStatus: http.StatusUnprocessableEntity,
-			ExpectedResponse:   `{"error": {"message": "invalid registry_url"}}`,
+			ExpectedResponse:   `{"error": {"message": "invalid registry.url"}}`,
 		},
 	}
 
@@ -183,41 +191,49 @@ func TestRequestHandler_ValidateScanRequest(t *testing.T) {
 			},
 			ExpectedError: &harbor.Error{
 				HTTPCode: http.StatusUnprocessableEntity,
-				Message:  "missing registry_url",
+				Message:  "missing registry.url",
 			},
 		},
 		{
 			Name: "Should return error when Registry URL is invalid",
 			Request: harbor.ScanRequest{
-				ID:          uuid.New().String(),
-				RegistryURL: "INVALID URL",
+				ID: uuid.New().String(),
+				Registry: harbor.Registry{
+					URL: "INVALID URL",
+				},
 			},
 			ExpectedError: &harbor.Error{
 				HTTPCode: http.StatusUnprocessableEntity,
-				Message:  "invalid registry_url",
+				Message:  "invalid registry.url",
 			},
 		},
 		{
 			Name: "Should return error when artifact repository is blank",
 			Request: harbor.ScanRequest{
-				ID:          uuid.New().String(),
-				RegistryURL: "https://core.harbor.domain",
+				ID: uuid.New().String(),
+				Registry: harbor.Registry{
+					URL: "https://core.harbor.domain",
+				},
 			},
 			ExpectedError: &harbor.Error{
 				HTTPCode: http.StatusUnprocessableEntity,
-				Message:  "missing artifact_repository",
+				Message:  "missing artifact.repository",
 			},
 		},
 		{
 			Name: "Should return error when artifact digest is blank",
 			Request: harbor.ScanRequest{
-				ID:                 uuid.New().String(),
-				RegistryURL:        "https://core.harbor.domain",
-				ArtifactRepository: "library/mongo",
+				ID: uuid.New().String(),
+				Registry: harbor.Registry{
+					URL: "https://core.harbor.domain",
+				},
+				Artifact: harbor.Artifact{
+					Repository: "library/mongo",
+				},
 			},
 			ExpectedError: &harbor.Error{
 				HTTPCode: http.StatusUnprocessableEntity,
-				Message:  "missing artifact_digest",
+				Message:  "missing artifact.digest",
 			},
 		},
 	}

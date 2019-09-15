@@ -28,14 +28,18 @@ See [Pluggable Image Vulnerability Scanning Proposal][image-vulnerability-scanni
 2. Submit the scan request:
    ```
    curl http://localhost:8080/api/v1/scan \
-   -H 'Content-Type: application/json; charset=utf-8' \
+   -H 'Content-Type: application/vnd.scanner.adapter.scan.request+json; version=1.0' \
    -d @- << EOF
    {
      "id": "${SCAN_REQUEST_ID}",
-     "registry_url": "docker.io",
-     "registry_authorization": "${REGISTRY_AUTHORIZATION}",
-     "artifact_repository": "library/mongo",
-     "artifact_digest": "sha256:917f5b7f4bef1b35ee90f03033f33a81002511c1e0767fd44276d4bd9cd2fa8e"
+     "registry": {
+       "url": "docker.io",
+       "authorization": "${REGISTRY_AUTHORIZATION}"
+     },
+     "artifact": {
+       "repository": "library/mongo",
+       "digest": "sha256:917f5b7f4bef1b35ee90f03033f33a81002511c1e0767fd44276d4bd9cd2fa8e"
+     }
    }
    EOF
    ```

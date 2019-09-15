@@ -66,12 +66,12 @@ func (a *authorizer) Authorize(req harbor.ScanRequest) (string, error) {
 
 	config := &Config{
 		Auths: map[string]RegistryAuth{
-			req.RegistryURL: {
-				Token: req.RegistryAuthorization,
+			req.Registry.URL: {
+				Token: req.Registry.Authorization,
 			},
 		},
 		HTTPHeaders: map[string]string{
-			"User-Agent": "Harbor Scanner Microscanner",
+			"User-Agent": "Harbor Scanner MicroScanner",
 		},
 	}
 

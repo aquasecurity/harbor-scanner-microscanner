@@ -22,10 +22,14 @@ func TestScanner_Scan(t *testing.T) {
 	require.NoError(t, err)
 	scanID := uuid.New()
 	scanRequest := harbor.ScanRequest{
-		ID:                 scanID.String(),
-		RegistryURL:        "https://core.harbor.domain:433",
-		ArtifactRepository: "library/mongo",
-		ArtifactDigest:     "sha256:917f5b7f4bef1b35ee90f03033f33a81002511c1e0767fd44276d4bd9cd2fa8e",
+		ID: scanID.String(),
+		Registry: harbor.Registry{
+			URL: "https://core.harbor.domain:433",
+		},
+		Artifact: harbor.Artifact{
+			Repository: "library/mongo",
+			Digest:     "sha256:917f5b7f4bef1b35ee90f03033f33a81002511c1e0767fd44276d4bd9cd2fa8e",
+		},
 	}
 	harborReport := &harbor.VulnerabilityReport{}
 	microScannerReport := &microscanner.ScanReport{}
@@ -135,25 +139,36 @@ func TestScanner_ToImageRef(t *testing.T) {
 	}{
 		{
 			Request: harbor.ScanRequest{
-				RegistryURL:        "https://core.harbor.domain",
-				ArtifactRepository: "library/mongo",
-				ArtifactDigest:     "test:ABC",
+				Registry: harbor.Registry{
+					URL: "https://core.harbor.domain",
+				},
+				Artifact: harbor.Artifact{
+					Repository: "library/mongo",
+					Digest:     "test:ABC",
+				},
 			},
 			ImageRef: "core.harbor.domain/library/mongo@test:ABC",
 		},
 		{
 			Request: harbor.ScanRequest{
-				RegistryURL:        "https://core.harbor.domain:443",
-				ArtifactRepository: "library/nginx",
-				ArtifactDigest:     "test:DEF",
+				Registry: harbor.Registry{
+					URL: "https://core.harbor.domain:443",
+				},
+				Artifact: harbor.Artifact{Repository: "library/nginx",
+					Digest: "test:DEF",
+				},
 			},
 			ImageRef: "core.harbor.domain:443/library/nginx@test:DEF",
 		},
 		{
 			Request: harbor.ScanRequest{
-				RegistryURL:        "http://harbor-harbor-registry:5000",
-				ArtifactRepository: "scanners/mongo",
-				ArtifactDigest:     "test:GHI",
+				Registry: harbor.Registry{
+					URL: "http://harbor-harbor-registry:5000",
+				},
+				Artifact: harbor.Artifact{
+					Repository: "scanners/mongo",
+					Digest:     "test:GHI",
+				},
 			},
 			ImageRef: "harbor-harbor-registry:5000/scanners/mongo@test:GHI",
 		},

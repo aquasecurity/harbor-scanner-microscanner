@@ -13,8 +13,10 @@ import (
 func TestAuthorizer_Authorize(t *testing.T) {
 	authorizer := NewAuthorizer()
 	configFileName, err := authorizer.Authorize(harbor.ScanRequest{
-		RegistryURL:           "core.harbor.domain",
-		RegistryAuthorization: "JWTTOKENGOESHERE",
+		Registry: harbor.Registry{
+			URL:           "core.harbor.domain",
+			Authorization: "JWTTOKENGOESHERE",
+		},
 	})
 	require.NoError(t, err)
 	configFile, err := os.Open(configFileName)
@@ -28,7 +30,7 @@ func TestAuthorizer_Authorize(t *testing.T) {
    }
  },
  "HttpHeaders": {
-   "User-Agent":"Harbor Scanner Microscanner"
+   "User-Agent":"Harbor Scanner MicroScanner"
  }
 }`
 

@@ -13,12 +13,21 @@ const (
 // Severity represents the severity of a image/component in terms of vulnerability.
 type Severity int64
 
+type Registry struct {
+	URL           string `json:"url"`
+	Authorization string `json:"authorization"`
+}
+
+// Artifact is an artifact stored in a Harbor registry.
+type Artifact struct {
+	Repository string `json:"repository"`
+	Digest     string `json:"digest"`
+}
+
 type ScanRequest struct {
-	ID                    string `json:"id"`
-	RegistryURL           string `json:"registry_url"`
-	RegistryAuthorization string `json:"registry_authorization"`
-	ArtifactRepository    string `json:"artifact_repository"`
-	ArtifactDigest        string `json:"artifact_digest"`
+	ID       string   `json:"id"`
+	Registry Registry `json:"registry"`
+	Artifact Artifact `json:"artifact"`
 }
 
 type VulnerabilityReport struct {
