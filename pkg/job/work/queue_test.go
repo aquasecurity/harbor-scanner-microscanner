@@ -15,16 +15,24 @@ func TestWorkQueue_ExecuteScanJob(t *testing.T) {
 
 	scanID := uuid.New()
 	scanRequest := harbor.ScanRequest{
-		ID:                 scanID.String(),
-		RegistryURL:        "docker.io",
-		ArtifactRepository: "library/mongo",
-		ArtifactDigest:     "sha256:917f5b7f4bef1b35ee90f03033f33a81002511c1e0767fd44276d4bd9cd2fa8e",
+		ID: scanID.String(),
+		Registry: harbor.Registry{
+			URL: "docker.io",
+		},
+		Artifact: harbor.Artifact{
+			Repository: "library/mongo",
+			Digest:     "sha256:917f5b7f4bef1b35ee90f03033f33a81002511c1e0767fd44276d4bd9cd2fa8e",
+		},
 	}
 	scanRequestJSON := fmt.Sprintf(`{
   "id": "%s",
-  "registry_url": "docker.io",
-  "artifact_repository": "library/mongo",
-  "artifact_digest": "sha256:917f5b7f4bef1b35ee90f03033f33a81002511c1e0767fd44276d4bd9cd2fa8e"
+  "registry": {
+    "url": "docker.io"
+  },
+  "artifact": {
+    "repository": "library/mongo",
+    "digest": "sha256:917f5b7f4bef1b35ee90f03033f33a81002511c1e0767fd44276d4bd9cd2fa8e"
+  }
 }`, scanID.String())
 
 	job := &work.Job{

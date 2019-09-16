@@ -36,7 +36,12 @@ func ApplyExpectations(t *testing.T, mock interface{}, expectations ...*Expectat
 		for _, e := range expectations {
 			m.On(e.MethodName, e.Arguments...).Return(e.ReturnArguments...)
 		}
+	case *JobQueueMock:
+		m := mock.(*JobQueueMock)
+		for _, e := range expectations {
+			m.On(e.MethodName, e.Arguments...).Return(e.ReturnArguments...)
+		}
 	default:
-		t.Fatalf("Unrecognized mock type %T!", v)
+		t.Fatalf("Unrecognized mock type: %T!", v)
 	}
 }

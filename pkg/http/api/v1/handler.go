@@ -2,6 +2,7 @@ package v1
 
 import (
 	"encoding/json"
+	"fmt"
 	"github.com/aquasecurity/harbor-scanner-microscanner/pkg/job"
 	"github.com/aquasecurity/harbor-scanner-microscanner/pkg/model/harbor"
 	"github.com/aquasecurity/harbor-scanner-microscanner/pkg/store"
@@ -9,12 +10,12 @@ import (
 	"github.com/gorilla/mux"
 	log "github.com/sirupsen/logrus"
 	"net/http"
+	"net/url"
 	"strings"
 )
 
 const (
 	headerAccept       = "Accept"
-	headerContentType  = "Content-Type"
 	headerRefreshAfter = "Refresh-After"
 
 	mimeTypeMetadata                  = "application/vnd.scanner.adapter.metadata+json; version=1.0"
@@ -23,7 +24,6 @@ const (
 	mimeTypeMicroScannerReport        = "application/vnd.scanner.adapter.vuln.report.raw"
 
 	pathAPIPrefix        = "/api/v1"
-	pathHealth           = "/health"
 	pathMetadata         = "/metadata"
 	pathScan             = "/scan"
 	pathScanReport       = "/scan/{scanRequestID}/report"
@@ -31,12 +31,12 @@ const (
 
 	fieldScanJob       = "scan_job"
 	fieldScanRequestID = "scan_request_id"
-	fieldError         = "error"
 )
 
 type requestHandler struct {
 	jobQueue  job.Queue
 	dataStore store.DataStore
+	BaseHandler
 }
 
 func NewAPIHandler(jobQueue job.Queue, dataStore store.DataStore) http.Handler {
@@ -48,15 +48,10 @@ func NewAPIHandler(jobQueue job.Queue, dataStore store.DataStore) http.Handler {
 	router := mux.NewRouter()
 	v1Router := router.PathPrefix(pathAPIPrefix).Subrouter()
 
-	v1Router.Methods(http.MethodGet).Path(pathHealth).HandlerFunc(handler.GetHealth)
 	v1Router.Methods(http.MethodGet).Path(pathMetadata).HandlerFunc(handler.GetMetadata)
 	v1Router.Methods(http.MethodPost).Path(pathScan).HandlerFunc(handler.AcceptScanRequest)
 	v1Router.Methods(http.MethodGet).Path(pathScanReport).HandlerFunc(handler.GetScanReport)
 	return router
-}
-
-func (h *requestHandler) GetHealth(res http.ResponseWriter, req *http.Request) {
-	res.WriteHeader(http.StatusOK)
 }
 
 // TODO https://github.com/aquasecurity/harbor-scanner-microscanner/issues/16
@@ -79,7 +74,7 @@ func (h *requestHandler) GetMetadata(res http.ResponseWriter, req *http.Request)
 		},
 	}
 
-	res.Header().Set(headerContentType, mimeTypeMetadata)
+	res.Header().Set(HeaderContentType, mimeTypeMetadata)
 	err := json.NewEncoder(res).Encode(md)
 	if err != nil {
 		log.Errorf("Error while marshalling metadata response: %v", err)
@@ -88,32 +83,82 @@ func (h *requestHandler) GetMetadata(res http.ResponseWriter, req *http.Request)
 }
 
 func (h *requestHandler) AcceptScanRequest(res http.ResponseWriter, req *http.Request) {
+	log.Debug("Accept scan request received")
 	scanRequest := harbor.ScanRequest{}
 	err := json.NewDecoder(req.Body).Decode(&scanRequest)
 	if err != nil {
-		log.Errorf("Error while unmarshalling scan request: %v", err)
-		http.Error(res, "Bad Request", http.StatusBadRequest)
+		log.WithError(err).Error("Error while unmarshalling scan request")
+		h.SendJSONError(res, harbor.Error{
+			HTTPCode: http.StatusBadRequest,
+			Message:  fmt.Sprintf("unmarshalling scan request: %s", err.Error()),
+		})
+		return
+	}
+
+	reqLog := log.WithField(fieldScanRequestID, scanRequest.ID)
+
+	if validationError := h.ValidateScanRequest(scanRequest); validationError != nil {
+		reqLog.Errorf("Error while validating scan request: %s", validationError.Message)
+		h.SendJSONError(res, *validationError)
 		return
 	}
 
 	scanJob, err := h.jobQueue.EnqueueScanJob(scanRequest)
 	if err != nil {
-		log.WithFields(log.Fields{
-			fieldScanRequestID: scanRequest.ID,
-			fieldError:         err,
-		}).Error("Error while enqueuing scan job")
-		h.SendInternalServerError(res)
+		reqLog.WithError(err).Error("Error while enqueuing scan job")
+		h.SendJSONError(res, harbor.Error{
+			HTTPCode: http.StatusInternalServerError,
+			Message:  fmt.Sprintf("enqueuing scan job: %s", err.Error()),
+		})
 		return
 	}
-	log.WithFields(log.Fields{
-		fieldScanJob:       scanJob.ID,
-		fieldScanRequestID: scanRequest.ID,
-	}).Debug("Enqueued scan job")
+	reqLog.WithField(fieldScanJob, scanJob.ID).Debug("Scan job enqueued successfully")
 
 	res.WriteHeader(http.StatusAccepted)
 }
 
+func (h *requestHandler) ValidateScanRequest(req harbor.ScanRequest) *harbor.Error {
+	if req.ID == "" {
+		return &harbor.Error{
+			HTTPCode: http.StatusUnprocessableEntity,
+			Message:  "missing id",
+		}
+	}
+
+	if req.Registry.URL == "" {
+		return &harbor.Error{
+			HTTPCode: http.StatusUnprocessableEntity,
+			Message:  "missing registry.url",
+		}
+	}
+
+	_, err := url.ParseRequestURI(req.Registry.URL)
+	if err != nil {
+		return &harbor.Error{
+			HTTPCode: http.StatusUnprocessableEntity,
+			Message:  "invalid registry.url",
+		}
+	}
+
+	if req.Artifact.Repository == "" {
+		return &harbor.Error{
+			HTTPCode: http.StatusUnprocessableEntity,
+			Message:  "missing artifact.repository",
+		}
+	}
+
+	if req.Artifact.Digest == "" {
+		return &harbor.Error{
+			HTTPCode: http.StatusUnprocessableEntity,
+			Message:  "missing artifact.digest",
+		}
+	}
+
+	return nil
+}
+
 func (h *requestHandler) GetScanReport(res http.ResponseWriter, req *http.Request) {
+	log.Debug("Get scan report request received")
 	vars := mux.Vars(req)
 	scanRequestID, ok := vars[pathVarScanRequestID]
 	if !ok {
@@ -123,9 +168,8 @@ func (h *requestHandler) GetScanReport(res http.ResponseWriter, req *http.Reques
 
 	scanID, err := uuid.Parse(scanRequestID)
 	if err != nil {
-		log.WithFields(log.Fields{
+		log.WithError(err).WithFields(log.Fields{
 			fieldScanRequestID: scanRequestID,
-			fieldError:         err,
 		}).Error("Error while parsing scan request ID")
 		h.SendInternalServerError(res)
 		return
@@ -166,7 +210,7 @@ func (h *requestHandler) GetScanReport(res http.ResponseWriter, req *http.Reques
 
 	switch reportMIMEType := h.GetReportMIMEType(req); reportMIMEType {
 	case mimeTypeHarborVulnerabilityReport, "":
-		res.Header().Set(headerContentType, reportMIMEType)
+		res.Header().Set(HeaderContentType, reportMIMEType)
 		err = json.NewEncoder(res).Encode(scanReports.HarborVulnerabilityReport)
 		if err != nil {
 			log.Errorf("Error while marshalling Harbor vulnerability report: %v", err)
@@ -174,7 +218,7 @@ func (h *requestHandler) GetScanReport(res http.ResponseWriter, req *http.Reques
 		}
 		return
 	case mimeTypeMicroScannerReport:
-		res.Header().Set(headerContentType, reportMIMEType)
+		res.Header().Set(HeaderContentType, reportMIMEType)
 		err = json.NewEncoder(res).Encode(scanReports.MicroScannerReport)
 		if err != nil {
 			log.Errorf("Error while marshalling MicroScanner report: %v", err)
@@ -185,11 +229,6 @@ func (h *requestHandler) GetScanReport(res http.ResponseWriter, req *http.Reques
 		http.Error(res, "Unrecognized report MIME type", http.StatusUnprocessableEntity)
 		return
 	}
-}
-
-// TODO https://github.com/aquasecurity/harbor-scanner-microscanner/issues/18
-func (h *requestHandler) SendInternalServerError(res http.ResponseWriter) {
-	http.Error(res, "Internal Server Error", http.StatusInternalServerError)
 }
 
 func (h *requestHandler) GetReportMIMEType(req *http.Request) string {

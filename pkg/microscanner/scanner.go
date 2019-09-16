@@ -107,9 +107,9 @@ func (s *scanner) scan(scanID uuid.UUID, req harbor.ScanRequest) error {
 // ToImageRef returns Docker image reference for the given ScanRequest.
 // Example: core.harbor.domain/scanners/mysql@sha256:3b00a364fb74246ca119d16111eb62f7302b2ff66d51e373c2bb209f8a1f3b9e
 func (s *scanner) ToImageRef(req harbor.ScanRequest) (string, error) {
-	registryURL, err := url.Parse(req.RegistryURL)
+	registryURL, err := url.Parse(req.Registry.URL)
 	if err != nil {
 		return "", xerrors.Errorf("parsing registry URL: %w", err)
 	}
-	return fmt.Sprintf("%s/%s@%s", registryURL.Host, req.ArtifactRepository, req.ArtifactDigest), nil
+	return fmt.Sprintf("%s/%s@%s", registryURL.Host, req.Artifact.Repository, req.Artifact.Digest), nil
 }
