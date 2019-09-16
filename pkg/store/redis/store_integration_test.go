@@ -53,9 +53,9 @@ func TestRedisStore_ScanCRUD(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("Should save and get ScanJob", func(t *testing.T) {
-		scanID := uuid.New()
+		scanID := uuid.New().String()
 		err := dataStore.SaveScanJob(scanID, &job.ScanJob{
-			ID:     scanID.String(),
+			ID:     scanID,
 			Status: job.Queued,
 		})
 		require.NoError(t, err)
@@ -63,7 +63,7 @@ func TestRedisStore_ScanCRUD(t *testing.T) {
 		j, err := dataStore.GetScanJob(scanID)
 		require.NoError(t, err)
 		assert.Equal(t, &job.ScanJob{
-			ID:     scanID.String(),
+			ID:     scanID,
 			Status: job.Queued,
 		}, j)
 
@@ -75,13 +75,13 @@ func TestRedisStore_ScanCRUD(t *testing.T) {
 
 		j, err = dataStore.GetScanJob(scanID)
 		assert.Equal(t, &job.ScanJob{
-			ID:     scanID.String(),
+			ID:     scanID,
 			Status: job.Pending,
 		}, j)
 	})
 
 	t.Run("Should save and get ScanReports", func(t *testing.T) {
-		scanID := uuid.New()
+		scanID := uuid.New().String()
 		scanReports := &store.ScanReports{
 			HarborVulnerabilityReport: &harbor.VulnerabilityReport{
 				Severity: harbor.SevHigh,

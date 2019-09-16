@@ -1,13 +1,11 @@
 package microscanner
 
 import (
-	"errors"
 	"github.com/aquasecurity/harbor-scanner-microscanner/pkg/job"
 	"github.com/aquasecurity/harbor-scanner-microscanner/pkg/mocks"
 	"github.com/aquasecurity/harbor-scanner-microscanner/pkg/model/harbor"
 	"github.com/aquasecurity/harbor-scanner-microscanner/pkg/model/microscanner"
 	"github.com/aquasecurity/harbor-scanner-microscanner/pkg/store"
-	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"io/ioutil"
@@ -20,9 +18,8 @@ func TestScanner_Scan(t *testing.T) {
 	configFileName := filepath.Join(tmpDir, "config.json")
 
 	require.NoError(t, err)
-	scanID := uuid.New()
+	scanID := "job:123"
 	scanRequest := harbor.ScanRequest{
-		ID: scanID.String(),
 		Registry: harbor.Registry{
 			URL: "https://core.harbor.domain:433",
 		},
@@ -93,13 +90,6 @@ func TestScanner_Scan(t *testing.T) {
 			},
 			ExpectedError: nil,
 		},
-		{
-			Name: "Should return error when scan ID is not a valid UUID",
-			ScanRequest: harbor.ScanRequest{
-				ID: "INVALID_UUID",
-			},
-			ExpectedError: errors.New("parsing scan request ID: invalid UUID length: 12"),
-		},
 	}
 
 	for _, tc := range testCases {
@@ -120,7 +110,7 @@ func TestScanner_Scan(t *testing.T) {
 
 			scanner := NewScanner(authorizer, wrapper, transformer, dataStore)
 
-			err := scanner.Scan(tc.ScanRequest)
+			err := scanner.Scan(scanID, tc.ScanRequest)
 			assert.Equal(t, tc.ExpectedError, err)
 
 			authorizer.AssertExpectations(t)

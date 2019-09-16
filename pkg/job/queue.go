@@ -2,7 +2,6 @@ package job
 
 import (
 	"github.com/aquasecurity/harbor-scanner-microscanner/pkg/model/harbor"
-	"github.com/google/uuid"
 )
 
 type ScanJobStatus int
@@ -31,6 +30,4 @@ type Queue interface {
 	Stop()
 	// EnqueueScanJob enqueues a ScanJob for the given ScanRequest.
 	EnqueueScanJob(sr harbor.ScanRequest) (*ScanJob, error)
-	// GetScanJob returns a ScanJob associated with the given scan request identifier.
-	GetScanJob(scanID uuid.UUID) (*ScanJob, error)
 }

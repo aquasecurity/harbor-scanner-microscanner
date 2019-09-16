@@ -10,7 +10,6 @@ import (
 	"github.com/aquasecurity/harbor-scanner-microscanner/pkg/store"
 	"github.com/gocraft/work"
 	"github.com/gomodule/redigo/redis"
-	"github.com/google/uuid"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -65,9 +64,7 @@ func (wq *workQueue) Stop() {
 }
 
 func (wq *workQueue) EnqueueScanJob(sr harbor.ScanRequest) (*job.ScanJob, error) {
-	log.WithFields(log.Fields{
-		"scan_request_id": sr.ID,
-	}).Debug("Enqueueing scan job")
+	log.Debug("Enqueueing scan job")
 
 	b, err := json.Marshal(sr)
 	if err != nil {
@@ -81,21 +78,15 @@ func (wq *workQueue) EnqueueScanJob(sr harbor.ScanRequest) (*job.ScanJob, error)
 		return nil, fmt.Errorf("enqueuing scan image job: %v", err)
 	}
 	log.WithFields(log.Fields{
-		"scan_job":        j.ID,
-		"scan_request_id": sr.ID,
+		"scan_job": j.ID,
 	}).Debug("Successfully enqueued scan job")
-
-	scanID, err := uuid.Parse(sr.ID)
-	if err != nil {
-		return nil, fmt.Errorf("parsing scan request ID: %v", err)
-	}
 
 	scanJob := &job.ScanJob{
 		ID:     j.ID,
 		Status: job.Queued,
 	}
 
-	err = wq.dataStore.SaveScanJob(scanID, scanJob)
+	err = wq.dataStore.SaveScanJob(scanJob.ID, scanJob)
 	if err != nil {
 		return nil, fmt.Errorf("saving scan job %v", err)
 	}
@@ -103,14 +94,10 @@ func (wq *workQueue) EnqueueScanJob(sr harbor.ScanRequest) (*job.ScanJob, error)
 	return scanJob, nil
 }
 
-func (wq *workQueue) GetScanJob(scanID uuid.UUID) (*job.ScanJob, error) {
-	return wq.dataStore.GetScanJob(scanID)
-}
-
 func (wq *workQueue) ExecuteScanJob(job *work.Job) error {
-	log.WithFields(log.Fields{
-		"scan_job": job.ID,
-	}).Debug("Scan job started")
+	execLog := log.WithField("scan_job", job.ID)
+
+	execLog.Debug("Scan job started")
 
 	scanner, ok := job.Args[scannerArg].(microscanner.Scanner)
 	if !ok {
@@ -128,13 +115,11 @@ func (wq *workQueue) ExecuteScanJob(job *work.Job) error {
 		return err
 	}
 
-	err = scanner.Scan(sr)
+	err = scanner.Scan(job.ID, sr)
 	if err != nil {
 		return err
 	}
 
-	log.WithFields(log.Fields{
-		"scan_job": job.ID,
-	}).Debug("Scan job finished")
+	execLog.Debug("Scan job finished")
 	return err
 }

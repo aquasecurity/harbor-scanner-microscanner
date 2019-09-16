@@ -7,7 +7,6 @@ import (
 	"github.com/aquasecurity/harbor-scanner-microscanner/pkg/model"
 	"github.com/aquasecurity/harbor-scanner-microscanner/pkg/model/harbor"
 	"github.com/aquasecurity/harbor-scanner-microscanner/pkg/store"
-	"github.com/google/uuid"
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/xerrors"
 	"net/url"
@@ -16,8 +15,9 @@ import (
 )
 
 // Scanner wraps the Scan method.
+// TODO Rename to ScannerManager
 type Scanner interface {
-	Scan(req harbor.ScanRequest) error
+	Scan(scanJobID string, request harbor.ScanRequest) error
 }
 
 type scanner struct {
@@ -36,16 +36,12 @@ func NewScanner(authorizer docker.Authorizer, wrapper Wrapper, transformer model
 	}
 }
 
-func (s *scanner) Scan(req harbor.ScanRequest) error {
-	scanID, err := uuid.Parse(req.ID)
-	if err != nil {
-		return fmt.Errorf("parsing scan request ID: %v", err)
-	}
+func (s *scanner) Scan(scanJobID string,req harbor.ScanRequest) error {
 
-	err = s.scan(scanID, req)
+	err := s.scan(scanJobID, req)
 	if err != nil {
 		log.Errorf("Scan failed: %v", err)
-		err = s.dataStore.UpdateScanJobStatus(scanID, job.Pending, job.Failed)
+		err = s.dataStore.UpdateScanJobStatus(scanJobID, job.Pending, job.Failed)
 		if err != nil {
 			return fmt.Errorf("updating scan job as failed: %v", err)
 		}
@@ -53,7 +49,7 @@ func (s *scanner) Scan(req harbor.ScanRequest) error {
 	return nil
 }
 
-func (s *scanner) scan(scanID uuid.UUID, req harbor.ScanRequest) error {
+func (s *scanner) scan(scanID string, req harbor.ScanRequest) error {
 	err := s.dataStore.UpdateScanJobStatus(scanID, job.Queued, job.Pending)
 	if err != nil {
 		return fmt.Errorf("updating scan job status: %v", err)

@@ -8,7 +8,6 @@ import (
 	"github.com/aquasecurity/harbor-scanner-microscanner/pkg/model/harbor"
 	"github.com/aquasecurity/harbor-scanner-microscanner/pkg/model/microscanner"
 	"github.com/aquasecurity/harbor-scanner-microscanner/pkg/store"
-	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"net/http"
 	"net/http/httptest"
@@ -25,12 +24,6 @@ type Request struct {
 type Response struct {
 	Code int
 	Body string
-}
-
-type Expectation struct {
-	MethodName      string
-	Arguments       []interface{}
-	ReturnArguments []interface{}
 }
 
 func TestRequestHandler_GetMetadata(t *testing.T) {
@@ -74,7 +67,6 @@ func TestRequestHandler_GetMetadata(t *testing.T) {
 
 func TestRequestHandler_AcceptScanRequest(t *testing.T) {
 	scanRequest := harbor.ScanRequest{
-		ID: "ABC",
 		Registry: harbor.Registry{
 			URL:           "https://core.harbor.domain",
 			Authorization: "Bearer: SECRET",
@@ -177,17 +169,8 @@ func TestRequestHandler_ValidateScanRequest(t *testing.T) {
 		ExpectedError *harbor.Error
 	}{
 		{
-			Name:    "Should return error when ID is blank",
-			Request: harbor.ScanRequest{},
-			ExpectedError: &harbor.Error{
-				HTTPCode: http.StatusUnprocessableEntity,
-				Message:  "missing id",
-			},
-		},
-		{
 			Name: "Should return error when Registry URL is blank",
 			Request: harbor.ScanRequest{
-				ID: uuid.New().String(),
 			},
 			ExpectedError: &harbor.Error{
 				HTTPCode: http.StatusUnprocessableEntity,
@@ -197,7 +180,6 @@ func TestRequestHandler_ValidateScanRequest(t *testing.T) {
 		{
 			Name: "Should return error when Registry URL is invalid",
 			Request: harbor.ScanRequest{
-				ID: uuid.New().String(),
 				Registry: harbor.Registry{
 					URL: "INVALID URL",
 				},
@@ -210,7 +192,6 @@ func TestRequestHandler_ValidateScanRequest(t *testing.T) {
 		{
 			Name: "Should return error when artifact repository is blank",
 			Request: harbor.ScanRequest{
-				ID: uuid.New().String(),
 				Registry: harbor.Registry{
 					URL: "https://core.harbor.domain",
 				},
@@ -223,7 +204,6 @@ func TestRequestHandler_ValidateScanRequest(t *testing.T) {
 		{
 			Name: "Should return error when artifact digest is blank",
 			Request: harbor.ScanRequest{
-				ID: uuid.New().String(),
 				Registry: harbor.Registry{
 					URL: "https://core.harbor.domain",
 				},
@@ -248,8 +228,7 @@ func TestRequestHandler_ValidateScanRequest(t *testing.T) {
 }
 
 func TestRequestHandler_GetScanReport(t *testing.T) {
-
-	scanRequestID := uuid.New()
+	scanRequestID := "job:123"
 	harborReport := &harbor.VulnerabilityReport{
 		Severity: harbor.SevHigh,
 		Vulnerabilities: []*harbor.VulnerabilityItem{
@@ -350,24 +329,25 @@ func TestRequestHandler_GetScanReport(t *testing.T) {
 
 	var nilScanJob *job.ScanJob
 
-	data := []struct {
+	testCases := []struct {
 		Scenario             string
 		Skip                 bool
 		Request              Request
 		Response             Response
-		JobQueueExpectation  *Expectation
-		DataStoreExpectation *Expectation
+		DataStoreExpectation []*mocks.Expectation
 	}{
 		{
 			Scenario: "Should return 404 Not Found when scan job is nil",
 			Request: Request{
 				Method: http.MethodGet,
-				Target: fmt.Sprintf("/api/v1/scan/%s/report", scanRequestID.String()),
+				Target: fmt.Sprintf("/api/v1/scan/%s/report", scanRequestID),
 			},
-			JobQueueExpectation: &Expectation{
-				MethodName:      "GetScanJob",
-				Arguments:       []interface{}{scanRequestID},
-				ReturnArguments: []interface{}{nilScanJob, nil},
+			DataStoreExpectation: []*mocks.Expectation{
+				{
+					MethodName:      "GetScanJob",
+					Arguments:       []interface{}{scanRequestID},
+					ReturnArguments: []interface{}{nilScanJob, nil},
+				},
 			},
 			Response: Response{
 				Code: http.StatusNotFound,
@@ -377,12 +357,14 @@ func TestRequestHandler_GetScanReport(t *testing.T) {
 			Scenario: fmt.Sprintf("Should return 302 Found status when scan job is %s", job.Queued),
 			Request: Request{
 				Method: http.MethodGet,
-				Target: fmt.Sprintf("/api/v1/scan/%s/report", scanRequestID.String()),
+				Target: fmt.Sprintf("/api/v1/scan/%s/report", scanRequestID),
 			},
-			JobQueueExpectation: &Expectation{
-				MethodName:      "GetScanJob",
-				Arguments:       []interface{}{scanRequestID},
-				ReturnArguments: []interface{}{&job.ScanJob{Status: job.Queued}, nil},
+			DataStoreExpectation: []*mocks.Expectation{
+				{
+					MethodName:      "GetScanJob",
+					Arguments:       []interface{}{scanRequestID},
+					ReturnArguments: []interface{}{&job.ScanJob{Status: job.Queued}, nil},
+				},
 			},
 			Response: Response{
 				Code: http.StatusFound,
@@ -392,12 +374,14 @@ func TestRequestHandler_GetScanReport(t *testing.T) {
 			Scenario: fmt.Sprintf("Should return 302 Found status when scan job is %s", job.Pending),
 			Request: Request{
 				Method: http.MethodGet,
-				Target: fmt.Sprintf("/api/v1/scan/%s/report", scanRequestID.String()),
+				Target: fmt.Sprintf("/api/v1/scan/%s/report", scanRequestID),
 			},
-			JobQueueExpectation: &Expectation{
-				MethodName:      "GetScanJob",
-				Arguments:       []interface{}{scanRequestID},
-				ReturnArguments: []interface{}{&job.ScanJob{Status: job.Pending}, nil},
+			DataStoreExpectation: []*mocks.Expectation{
+				{
+					MethodName:      "GetScanJob",
+					Arguments:       []interface{}{scanRequestID},
+					ReturnArguments: []interface{}{&job.ScanJob{Status: job.Pending}, nil},
+				},
 			},
 			Response: Response{
 				Code: http.StatusFound,
@@ -407,12 +391,14 @@ func TestRequestHandler_GetScanReport(t *testing.T) {
 			Scenario: fmt.Sprintf("Should return 500 Internal Server Error when scan job is %s", job.Failed),
 			Request: Request{
 				Method: http.MethodGet,
-				Target: fmt.Sprintf("/api/v1/scan/%s/report", scanRequestID.String()),
+				Target: fmt.Sprintf("/api/v1/scan/%s/report", scanRequestID),
 			},
-			JobQueueExpectation: &Expectation{
-				MethodName:      "GetScanJob",
-				Arguments:       []interface{}{scanRequestID},
-				ReturnArguments: []interface{}{&job.ScanJob{Status: job.Failed}, nil},
+			DataStoreExpectation: []*mocks.Expectation{
+				{
+					MethodName:      "GetScanJob",
+					Arguments:       []interface{}{scanRequestID},
+					ReturnArguments: []interface{}{&job.ScanJob{Status: job.Failed}, nil},
+				},
 			},
 			Response: Response{
 				Code: http.StatusInternalServerError,
@@ -422,22 +408,24 @@ func TestRequestHandler_GetScanReport(t *testing.T) {
 			Scenario: "Should return HarborVulnerabilityReport when report MIME type is specified",
 			Request: Request{
 				Method: http.MethodGet,
-				Target: fmt.Sprintf("/api/v1/scan/%s/report", scanRequestID.String()),
+				Target: fmt.Sprintf("/api/v1/scan/%s/report", scanRequestID),
 				Headers: map[string][]string{
 					headerAccept: {mimeTypeHarborVulnerabilityReport},
 				},
 			},
-			JobQueueExpectation: &Expectation{
-				MethodName:      "GetScanJob",
-				Arguments:       []interface{}{scanRequestID},
-				ReturnArguments: []interface{}{&job.ScanJob{Status: job.Finished}, nil},
-			},
-			DataStoreExpectation: &Expectation{
-				MethodName: "GetScanReports",
-				Arguments:  []interface{}{scanRequestID},
-				ReturnArguments: []interface{}{&store.ScanReports{
-					HarborVulnerabilityReport: harborReport,
-				}, nil},
+			DataStoreExpectation: []*mocks.Expectation{
+				{
+					MethodName:      "GetScanJob",
+					Arguments:       []interface{}{scanRequestID},
+					ReturnArguments: []interface{}{&job.ScanJob{Status: job.Finished}, nil},
+				},
+				{
+					MethodName: "GetScanReports",
+					Arguments:  []interface{}{scanRequestID},
+					ReturnArguments: []interface{}{&store.ScanReports{
+						HarborVulnerabilityReport: harborReport,
+					}, nil},
+				},
 			},
 			Response: Response{
 				Code: http.StatusOK,
@@ -448,20 +436,22 @@ func TestRequestHandler_GetScanReport(t *testing.T) {
 			Scenario: "Should return HarborVulnerabilityReport when report MIME type is not specified",
 			Request: Request{
 				Method:  http.MethodGet,
-				Target:  fmt.Sprintf("/api/v1/scan/%s/report", scanRequestID.String()),
+				Target:  fmt.Sprintf("/api/v1/scan/%s/report", scanRequestID),
 				Headers: map[string][]string{},
 			},
-			JobQueueExpectation: &Expectation{
-				MethodName:      "GetScanJob",
-				Arguments:       []interface{}{scanRequestID},
-				ReturnArguments: []interface{}{&job.ScanJob{Status: job.Finished}, nil},
-			},
-			DataStoreExpectation: &Expectation{
-				MethodName: "GetScanReports",
-				Arguments:  []interface{}{scanRequestID},
-				ReturnArguments: []interface{}{&store.ScanReports{
-					HarborVulnerabilityReport: harborReport,
-				}, nil},
+			DataStoreExpectation: []*mocks.Expectation{
+				{
+					MethodName:      "GetScanJob",
+					Arguments:       []interface{}{scanRequestID},
+					ReturnArguments: []interface{}{&job.ScanJob{Status: job.Finished}, nil},
+				},
+				{
+					MethodName: "GetScanReports",
+					Arguments:  []interface{}{scanRequestID},
+					ReturnArguments: []interface{}{&store.ScanReports{
+						HarborVulnerabilityReport: harborReport,
+					}, nil},
+				},
 			},
 			Response: Response{
 				Code: http.StatusOK,
@@ -472,22 +462,24 @@ func TestRequestHandler_GetScanReport(t *testing.T) {
 			Scenario: "Should return MicroScannerReport",
 			Request: Request{
 				Method: http.MethodGet,
-				Target: fmt.Sprintf("/api/v1/scan/%s/report", scanRequestID.String()),
+				Target: fmt.Sprintf("/api/v1/scan/%s/report", scanRequestID),
 				Headers: map[string][]string{
 					headerAccept: {mimeTypeMicroScannerReport},
 				},
 			},
-			JobQueueExpectation: &Expectation{
-				MethodName:      "GetScanJob",
-				Arguments:       []interface{}{scanRequestID},
-				ReturnArguments: []interface{}{&job.ScanJob{Status: job.Finished}, nil},
-			},
-			DataStoreExpectation: &Expectation{
-				MethodName: "GetScanReports",
-				Arguments:  []interface{}{scanRequestID},
-				ReturnArguments: []interface{}{&store.ScanReports{
-					MicroScannerReport: microScannerReport,
-				}, nil},
+			DataStoreExpectation: []*mocks.Expectation{
+				{
+					MethodName:      "GetScanJob",
+					Arguments:       []interface{}{scanRequestID},
+					ReturnArguments: []interface{}{&job.ScanJob{Status: job.Finished}, nil},
+				},
+				{
+					MethodName: "GetScanReports",
+					Arguments:  []interface{}{scanRequestID},
+					ReturnArguments: []interface{}{&store.ScanReports{
+						MicroScannerReport: microScannerReport,
+					}, nil},
+				},
 			},
 			Response: Response{
 				Code: http.StatusOK,
@@ -496,7 +488,7 @@ func TestRequestHandler_GetScanReport(t *testing.T) {
 		},
 	}
 
-	for _, td := range data {
+	for _, td := range testCases {
 		t.Run(td.Scenario, func(t *testing.T) {
 			if td.Skip {
 				t.Skip()
@@ -505,15 +497,7 @@ func TestRequestHandler_GetScanReport(t *testing.T) {
 			jobQueue := mocks.NewJobQueue()
 			dataStore := mocks.NewDataStore()
 
-			if expectation := td.JobQueueExpectation; expectation != nil {
-				jobQueue.On(expectation.MethodName, expectation.Arguments...).
-					Return(expectation.ReturnArguments...)
-			}
-
-			if expectation := td.DataStoreExpectation; expectation != nil {
-				dataStore.On(expectation.MethodName, expectation.Arguments...).
-					Return(expectation.ReturnArguments...)
-			}
+			mocks.ApplyExpectations(t, dataStore, td.DataStoreExpectation...)
 
 			// and
 			handler := NewAPIHandler(jobQueue, dataStore)

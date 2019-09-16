@@ -8,7 +8,6 @@ import (
 	"github.com/aquasecurity/harbor-scanner-microscanner/pkg/job"
 	"github.com/aquasecurity/harbor-scanner-microscanner/pkg/store"
 	"github.com/gomodule/redigo/redis"
-	"github.com/google/uuid"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -28,13 +27,14 @@ func NewDataStore(cfg *etc.RedisStoreConfig) (store.DataStore, error) {
 			MaxIdle:   cfg.Pool.MaxIdle,
 			Wait:      true,
 			Dial: func() (redis.Conn, error) {
+				log.Debug("Getting connection from the pool")
 				return redis.DialURL(cfg.RedisURL)
 			},
 		},
 	}, nil
 }
 
-func (rs *redisStore) SaveScanJob(scanID uuid.UUID, scanJob *job.ScanJob) error {
+func (rs *redisStore) SaveScanJob(scanID string, scanJob *job.ScanJob) error {
 	conn := rs.cp.Get()
 	defer rs.close(conn)
 
@@ -51,7 +51,7 @@ func (rs *redisStore) SaveScanJob(scanID uuid.UUID, scanJob *job.ScanJob) error 
 	return nil
 }
 
-func (rs *redisStore) GetScanJob(scanID uuid.UUID) (*job.ScanJob, error) {
+func (rs *redisStore) GetScanJob(scanID string) (*job.ScanJob, error) {
 	conn := rs.cp.Get()
 	defer rs.close(conn)
 
@@ -73,9 +73,9 @@ func (rs *redisStore) GetScanJob(scanID uuid.UUID) (*job.ScanJob, error) {
 	return &scanJob, nil
 }
 
-func (rs *redisStore) UpdateScanJobStatus(scanID uuid.UUID, currentStatus, newStatus job.ScanJobStatus) error {
+func (rs *redisStore) UpdateScanJobStatus(scanID string, currentStatus, newStatus job.ScanJobStatus) error {
 	log.WithFields(log.Fields{
-		"scan_job":       scanID.String(),
+		"scan_job":       scanID,
 		"current_status": currentStatus.String(),
 		"new_status":     newStatus.String(),
 	}).Debug("Updating job status")
@@ -92,7 +92,7 @@ func (rs *redisStore) UpdateScanJobStatus(scanID uuid.UUID, currentStatus, newSt
 	return rs.SaveScanJob(scanID, scanJob)
 }
 
-func (rs *redisStore) SaveScanReports(scanID uuid.UUID, scanReports *store.ScanReports) error {
+func (rs *redisStore) SaveScanReports(scanID string, scanReports *store.ScanReports) error {
 	conn := rs.cp.Get()
 	defer rs.close(conn)
 
@@ -106,7 +106,7 @@ func (rs *redisStore) SaveScanReports(scanID uuid.UUID, scanReports *store.ScanR
 	return err
 }
 
-func (rs *redisStore) GetScanReports(scanID uuid.UUID) (*store.ScanReports, error) {
+func (rs *redisStore) GetScanReports(scanID string) (*store.ScanReports, error) {
 	conn := rs.cp.Get()
 	defer rs.close(conn)
 
@@ -128,15 +128,16 @@ func (rs *redisStore) GetScanReports(scanID uuid.UUID) (*store.ScanReports, erro
 	return &scanReports, nil
 }
 
-func (rs *redisStore) getKeyForScanJob(scanID uuid.UUID) string {
-	return fmt.Sprintf("%s:scan-job:%s", rs.namespace, scanID.String())
+func (rs *redisStore) getKeyForScanJob(scanID string) string {
+	return fmt.Sprintf("%s:scan-job:%s", rs.namespace, scanID)
 }
 
-func (rs *redisStore) getKeyForScanReports(scanID uuid.UUID) string {
-	return fmt.Sprintf("%s:scan-reports:%s", rs.namespace, scanID.String())
+func (rs *redisStore) getKeyForScanReports(scanID string) string {
+	return fmt.Sprintf("%s:scan-reports:%s", rs.namespace, scanID)
 }
 
 func (rs *redisStore) close(conn redis.Conn) {
+	log.Debug("Returning connection to the pool")
 	err := conn.Close()
 	if err != nil {
 		log.Warnf("closing connection: %v", err)
