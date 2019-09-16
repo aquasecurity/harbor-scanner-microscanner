@@ -5,7 +5,6 @@ import (
 	"github.com/aquasecurity/harbor-scanner-microscanner/pkg/mocks"
 	"github.com/aquasecurity/harbor-scanner-microscanner/pkg/model/harbor"
 	"github.com/aquasecurity/harbor-scanner-microscanner/pkg/model/microscanner"
-	"github.com/aquasecurity/harbor-scanner-microscanner/pkg/store"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"io/ioutil"
@@ -30,7 +29,7 @@ func TestScanner_Scan(t *testing.T) {
 	}
 	harborReport := &harbor.VulnerabilityReport{}
 	microScannerReport := &microscanner.ScanReport{}
-	scanReports := &store.ScanReports{
+	scanReports := &job.ScanReports{
 		HarborVulnerabilityReport: harborReport,
 		MicroScannerReport:        microScannerReport,
 	}
@@ -42,7 +41,7 @@ func TestScanner_Scan(t *testing.T) {
 		ScanRequest            harbor.ScanRequest
 		MicroScannerReport     *microscanner.ScanReport
 		HarborReport           *harbor.VulnerabilityReport
-		ScanReports            *store.ScanReports
+		ScanReports            *job.ScanReports
 		AuthorizerExpectation  *mocks.Expectation
 		WrapperExpectation     *mocks.Expectation
 		TransformerExpectation *mocks.Expectation
@@ -73,17 +72,17 @@ func TestScanner_Scan(t *testing.T) {
 			},
 			DataStoreExpectations: []*mocks.Expectation{
 				{
-					MethodName:      "UpdateScanJobStatus",
+					MethodName:      "UpdateStatus",
 					Arguments:       []interface{}{scanID, job.Queued, job.Pending},
 					ReturnArguments: []interface{}{nil},
 				},
 				{
-					MethodName:      "SaveScanReports",
-					Arguments:       []interface{}{scanID, scanReports},
+					MethodName:      "UpdateReports",
+					Arguments:       []interface{}{scanID, *scanReports},
 					ReturnArguments: []interface{}{nil},
 				},
 				{
-					MethodName:      "UpdateScanJobStatus",
+					MethodName:      "UpdateStatus",
 					Arguments:       []interface{}{scanID, job.Pending, job.Finished},
 					ReturnArguments: []interface{}{nil},
 				},

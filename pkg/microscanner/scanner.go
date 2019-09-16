@@ -15,7 +15,6 @@ import (
 )
 
 // Scanner wraps the Scan method.
-// TODO Rename to ScannerManager
 type Scanner interface {
 	Scan(scanJobID string, request harbor.ScanRequest) error
 }
@@ -36,12 +35,12 @@ func NewScanner(authorizer docker.Authorizer, wrapper Wrapper, transformer model
 	}
 }
 
-func (s *scanner) Scan(scanJobID string,req harbor.ScanRequest) error {
+func (s *scanner) Scan(scanJobID string, req harbor.ScanRequest) error {
 
 	err := s.scan(scanJobID, req)
 	if err != nil {
 		log.Errorf("Scan failed: %v", err)
-		err = s.dataStore.UpdateScanJobStatus(scanJobID, job.Pending, job.Failed)
+		err = s.dataStore.UpdateStatus(scanJobID, job.Pending, job.Failed)
 		if err != nil {
 			return fmt.Errorf("updating scan job as failed: %v", err)
 		}
@@ -50,7 +49,7 @@ func (s *scanner) Scan(scanJobID string,req harbor.ScanRequest) error {
 }
 
 func (s *scanner) scan(scanID string, req harbor.ScanRequest) error {
-	err := s.dataStore.UpdateScanJobStatus(scanID, job.Queued, job.Pending)
+	err := s.dataStore.UpdateStatus(scanID, job.Queued, job.Pending)
 	if err != nil {
 		return fmt.Errorf("updating scan job status: %v", err)
 	}
@@ -83,7 +82,7 @@ func (s *scanner) scan(scanID string, req harbor.ScanRequest) error {
 		return fmt.Errorf("transforming microscanner report to harbor vulnerability report: %v", err)
 	}
 
-	err = s.dataStore.SaveScanReports(scanID, &store.ScanReports{
+	err = s.dataStore.UpdateReports(scanID, job.ScanReports{
 		MicroScannerReport:        microScannerReport,
 		HarborVulnerabilityReport: harborVulnerabilityReport,
 	})
@@ -92,7 +91,7 @@ func (s *scanner) scan(scanID string, req harbor.ScanRequest) error {
 		return fmt.Errorf("saving scan reports: %v", err)
 	}
 
-	err = s.dataStore.UpdateScanJobStatus(scanID, job.Pending, job.Finished)
+	err = s.dataStore.UpdateStatus(scanID, job.Pending, job.Finished)
 	if err != nil {
 		return fmt.Errorf("updating scan job status: %v", err)
 	}

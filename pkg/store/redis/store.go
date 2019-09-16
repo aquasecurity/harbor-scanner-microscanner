@@ -27,14 +27,17 @@ func NewDataStore(cfg *etc.RedisStoreConfig) (store.DataStore, error) {
 			MaxIdle:   cfg.Pool.MaxIdle,
 			Wait:      true,
 			Dial: func() (redis.Conn, error) {
-				log.Debug("Getting connection from the pool")
 				return redis.DialURL(cfg.RedisURL)
 			},
 		},
 	}, nil
 }
 
-func (rs *redisStore) SaveScanJob(scanID string, scanJob *job.ScanJob) error {
+func (rs *redisStore) SaveScanJob(scanJob *job.ScanJob) error {
+	if scanJob.ID == "" {
+		return errors.New("ID must not be blank")
+	}
+
 	conn := rs.cp.Get()
 	defer rs.close(conn)
 
@@ -43,7 +46,7 @@ func (rs *redisStore) SaveScanJob(scanID string, scanJob *job.ScanJob) error {
 		return err
 	}
 
-	key := rs.getKeyForScanJob(scanID)
+	key := rs.getKeyForScanJob(scanJob.ID)
 	_, err = conn.Do("SET", key, string(b))
 	if err != nil {
 		return err
@@ -73,12 +76,12 @@ func (rs *redisStore) GetScanJob(scanID string) (*job.ScanJob, error) {
 	return &scanJob, nil
 }
 
-func (rs *redisStore) UpdateScanJobStatus(scanID string, currentStatus, newStatus job.ScanJobStatus) error {
+func (rs *redisStore) UpdateStatus(scanID string, currentStatus, newStatus job.ScanJobStatus) error {
 	log.WithFields(log.Fields{
-		"scan_job":       scanID,
+		"scan_job_id":    scanID,
 		"current_status": currentStatus.String(),
 		"new_status":     newStatus.String(),
-	}).Debug("Updating job status")
+	}).Debug("Updating status for scan job")
 
 	scanJob, err := rs.GetScanJob(scanID)
 	if err != nil {
@@ -89,55 +92,28 @@ func (rs *redisStore) UpdateScanJobStatus(scanID string, currentStatus, newStatu
 	}
 
 	scanJob.Status = newStatus
-	return rs.SaveScanJob(scanID, scanJob)
+	return rs.SaveScanJob(scanJob)
 }
 
-func (rs *redisStore) SaveScanReports(scanID string, scanReports *store.ScanReports) error {
-	conn := rs.cp.Get()
-	defer rs.close(conn)
+func (rs *redisStore) UpdateReports(scanJobID string, reports job.ScanReports) error {
+	log.WithFields(log.Fields{
+		"scan_job_id": scanJobID,
+	}).Debug("Updating reports for scan job")
 
-	b, err := json.Marshal(scanReports)
+	scanJob, err := rs.GetScanJob(scanJobID)
 	if err != nil {
 		return err
 	}
 
-	key := rs.getKeyForScanReports(scanID)
-	_, err = conn.Do("SET", key, string(b))
-	return err
-}
-
-func (rs *redisStore) GetScanReports(scanID string) (*store.ScanReports, error) {
-	conn := rs.cp.Get()
-	defer rs.close(conn)
-
-	key := rs.getKeyForScanReports(scanID)
-	value, err := redis.String(conn.Do("GET", key))
-	if err != nil {
-		if err == redis.ErrNil {
-			return nil, nil
-		}
-		return nil, err
-	}
-
-	var scanReports store.ScanReports
-	err = json.Unmarshal([]byte(value), &scanReports)
-	if err != nil {
-		return nil, err
-	}
-
-	return &scanReports, nil
+	scanJob.Reports = &reports
+	return rs.SaveScanJob(scanJob)
 }
 
 func (rs *redisStore) getKeyForScanJob(scanID string) string {
 	return fmt.Sprintf("%s:scan-job:%s", rs.namespace, scanID)
 }
 
-func (rs *redisStore) getKeyForScanReports(scanID string) string {
-	return fmt.Sprintf("%s:scan-reports:%s", rs.namespace, scanID)
-}
-
 func (rs *redisStore) close(conn redis.Conn) {
-	log.Debug("Returning connection to the pool")
 	err := conn.Close()
 	if err != nil {
 		log.Warnf("closing connection: %v", err)

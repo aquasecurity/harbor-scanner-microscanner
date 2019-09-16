@@ -86,7 +86,7 @@ func (wq *workQueue) EnqueueScanJob(sr harbor.ScanRequest) (*job.ScanJob, error)
 		Status: job.Queued,
 	}
 
-	err = wq.dataStore.SaveScanJob(scanJob.ID, scanJob)
+	err = wq.dataStore.SaveScanJob(scanJob)
 	if err != nil {
 		return nil, fmt.Errorf("saving scan job %v", err)
 	}

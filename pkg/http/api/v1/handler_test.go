@@ -7,7 +7,6 @@ import (
 	"github.com/aquasecurity/harbor-scanner-microscanner/pkg/mocks"
 	"github.com/aquasecurity/harbor-scanner-microscanner/pkg/model/harbor"
 	"github.com/aquasecurity/harbor-scanner-microscanner/pkg/model/microscanner"
-	"github.com/aquasecurity/harbor-scanner-microscanner/pkg/store"
 	"github.com/stretchr/testify/assert"
 	"net/http"
 	"net/http/httptest"
@@ -169,9 +168,8 @@ func TestRequestHandler_ValidateScanRequest(t *testing.T) {
 		ExpectedError *harbor.Error
 	}{
 		{
-			Name: "Should return error when Registry URL is blank",
-			Request: harbor.ScanRequest{
-			},
+			Name:    "Should return error when Registry URL is blank",
+			Request: harbor.ScanRequest{},
 			ExpectedError: &harbor.Error{
 				HTTPCode: http.StatusUnprocessableEntity,
 				Message:  "missing registry.url",
@@ -415,16 +413,18 @@ func TestRequestHandler_GetScanReport(t *testing.T) {
 			},
 			DataStoreExpectation: []*mocks.Expectation{
 				{
-					MethodName:      "GetScanJob",
-					Arguments:       []interface{}{scanRequestID},
-					ReturnArguments: []interface{}{&job.ScanJob{Status: job.Finished}, nil},
-				},
-				{
-					MethodName: "GetScanReports",
+					MethodName: "GetScanJob",
 					Arguments:  []interface{}{scanRequestID},
-					ReturnArguments: []interface{}{&store.ScanReports{
-						HarborVulnerabilityReport: harborReport,
-					}, nil},
+					ReturnArguments: []interface{}{
+						&job.ScanJob{
+							ID:     scanRequestID,
+							Status: job.Finished,
+							Reports: &job.ScanReports{
+								HarborVulnerabilityReport: harborReport,
+							},
+						},
+						nil,
+					},
 				},
 			},
 			Response: Response{
@@ -441,16 +441,18 @@ func TestRequestHandler_GetScanReport(t *testing.T) {
 			},
 			DataStoreExpectation: []*mocks.Expectation{
 				{
-					MethodName:      "GetScanJob",
-					Arguments:       []interface{}{scanRequestID},
-					ReturnArguments: []interface{}{&job.ScanJob{Status: job.Finished}, nil},
-				},
-				{
-					MethodName: "GetScanReports",
+					MethodName: "GetScanJob",
 					Arguments:  []interface{}{scanRequestID},
-					ReturnArguments: []interface{}{&store.ScanReports{
-						HarborVulnerabilityReport: harborReport,
-					}, nil},
+					ReturnArguments: []interface{}{
+						&job.ScanJob{
+							ID:     scanRequestID,
+							Status: job.Finished,
+							Reports: &job.ScanReports{
+								HarborVulnerabilityReport: harborReport,
+							},
+						},
+						nil,
+					},
 				},
 			},
 			Response: Response{
@@ -469,16 +471,17 @@ func TestRequestHandler_GetScanReport(t *testing.T) {
 			},
 			DataStoreExpectation: []*mocks.Expectation{
 				{
-					MethodName:      "GetScanJob",
-					Arguments:       []interface{}{scanRequestID},
-					ReturnArguments: []interface{}{&job.ScanJob{Status: job.Finished}, nil},
-				},
-				{
-					MethodName: "GetScanReports",
+					MethodName: "GetScanJob",
 					Arguments:  []interface{}{scanRequestID},
-					ReturnArguments: []interface{}{&store.ScanReports{
-						MicroScannerReport: microScannerReport,
-					}, nil},
+					ReturnArguments: []interface{}{
+						&job.ScanJob{
+							ID:     scanRequestID,
+							Status: job.Finished,
+							Reports: &job.ScanReports{
+								MicroScannerReport: microScannerReport,
+							},
+						},
+						nil},
 				},
 			},
 			Response: Response{

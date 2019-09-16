@@ -9,7 +9,6 @@ import (
 	"github.com/aquasecurity/harbor-scanner-microscanner/pkg/job"
 	"github.com/aquasecurity/harbor-scanner-microscanner/pkg/model/harbor"
 	"github.com/aquasecurity/harbor-scanner-microscanner/pkg/model/microscanner"
-	"github.com/aquasecurity/harbor-scanner-microscanner/pkg/store"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -54,7 +53,7 @@ func TestRedisStore_ScanCRUD(t *testing.T) {
 
 	t.Run("Should save and get ScanJob", func(t *testing.T) {
 		scanID := uuid.New().String()
-		err := dataStore.SaveScanJob(scanID, &job.ScanJob{
+		err := dataStore.SaveScanJob(&job.ScanJob{
 			ID:     scanID,
 			Status: job.Queued,
 		})
@@ -67,10 +66,10 @@ func TestRedisStore_ScanCRUD(t *testing.T) {
 			Status: job.Queued,
 		}, j)
 
-		err = dataStore.UpdateScanJobStatus(scanID, job.Pending, job.Finished)
+		err = dataStore.UpdateStatus(scanID, job.Pending, job.Finished)
 		assert.EqualError(t, err, "expected status Pending but was Queued")
 
-		err = dataStore.UpdateScanJobStatus(scanID, job.Queued, job.Pending)
+		err = dataStore.UpdateStatus(scanID, job.Queued, job.Pending)
 		require.NoError(t, err)
 
 		j, err = dataStore.GetScanJob(scanID)
@@ -78,11 +77,8 @@ func TestRedisStore_ScanCRUD(t *testing.T) {
 			ID:     scanID,
 			Status: job.Pending,
 		}, j)
-	})
 
-	t.Run("Should save and get ScanReports", func(t *testing.T) {
-		scanID := uuid.New().String()
-		scanReports := &store.ScanReports{
+		scanReports := job.ScanReports{
 			HarborVulnerabilityReport: &harbor.VulnerabilityReport{
 				Severity: harbor.SevHigh,
 				Vulnerabilities: []*harbor.VulnerabilityItem{
@@ -104,12 +100,12 @@ func TestRedisStore_ScanCRUD(t *testing.T) {
 			},
 		}
 
-		err := dataStore.SaveScanReports(scanID, scanReports)
+		err = dataStore.UpdateReports(scanID, scanReports)
 		require.NoError(t, err)
 
-		fetched, err := dataStore.GetScanReports(scanID)
+		j, err = dataStore.GetScanJob(scanID)
 		require.NoError(t, err)
-
-		assert.Equal(t, scanReports, fetched)
+		assert.Equal(t, scanReports, *j.Reports)
 	})
+
 }

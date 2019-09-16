@@ -28,7 +28,7 @@ const (
 	pathScanReport       = "/scan/{scanRequestID}/report"
 	pathVarScanRequestID = "scanRequestID"
 
-	fieldScanJob = "scan_job"
+	fieldScanJobID = "scan_job_id"
 )
 
 type requestHandler struct {
@@ -108,7 +108,7 @@ func (h *requestHandler) AcceptScanRequest(res http.ResponseWriter, req *http.Re
 		})
 		return
 	}
-	log.WithField(fieldScanJob, scanJob.ID).Debug("Scan job enqueued successfully")
+	log.WithField(fieldScanJobID, scanJob.ID).Debug("Scan job enqueued successfully")
 
 	res.WriteHeader(http.StatusAccepted)
 	res.Header().Set(HeaderContentType, mimeTypeMetadata)
@@ -191,17 +191,10 @@ func (h *requestHandler) GetScanReport(res http.ResponseWriter, req *http.Reques
 		return
 	}
 
-	scanReports, err := h.dataStore.GetScanReports(scanJobID)
-	if scanReports == nil {
-		log.Errorf("Cannot find scan reports for the given scan request ID: %v", scanJobID)
-		h.SendInternalServerError(res)
-		return
-	}
-
 	switch reportMIMEType := h.GetReportMIMEType(req); reportMIMEType {
 	case mimeTypeHarborVulnerabilityReport, "":
 		res.Header().Set(HeaderContentType, reportMIMEType)
-		err = json.NewEncoder(res).Encode(scanReports.HarborVulnerabilityReport)
+		err = json.NewEncoder(res).Encode(scanJob.Reports.HarborVulnerabilityReport)
 		if err != nil {
 			log.Errorf("Error while marshalling Harbor vulnerability report: %v", err)
 			h.SendInternalServerError(res)
@@ -209,7 +202,7 @@ func (h *requestHandler) GetScanReport(res http.ResponseWriter, req *http.Reques
 		return
 	case mimeTypeMicroScannerReport:
 		res.Header().Set(HeaderContentType, reportMIMEType)
-		err = json.NewEncoder(res).Encode(scanReports.MicroScannerReport)
+		err = json.NewEncoder(res).Encode(scanJob.Reports.MicroScannerReport)
 		if err != nil {
 			log.Errorf("Error while marshalling MicroScanner report: %v", err)
 			h.SendInternalServerError(res)
