@@ -82,7 +82,7 @@ func (w *wrapper) Run(imageRef, dockerConfig string) (*microscanner.ScanReport, 
 			fieldExitCode: cmd.ProcessState.ExitCode(),
 			fieldStdErr:   stderrBuffer.String(),
 		}).Error("Wrapper script failed")
-		return nil, fmt.Errorf("running %s: %v", wrapperScript, err)
+		return nil, fmt.Errorf("running %s: %v: %v", wrapperScript, err, stderrBuffer.String())
 	}
 
 	runLog.WithFields(log.Fields{

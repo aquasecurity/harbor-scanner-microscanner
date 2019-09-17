@@ -36,11 +36,10 @@ func NewScanner(authorizer docker.Authorizer, wrapper Wrapper, transformer model
 }
 
 func (s *scanner) Scan(scanJobID string, req harbor.ScanRequest) error {
-
-	err := s.scan(scanJobID, req)
+	err := s.scanE(scanJobID, req)
 	if err != nil {
-		log.Errorf("Scan failed: %v", err)
-		err = s.dataStore.UpdateStatus(scanJobID, job.Pending, job.Failed)
+		log.WithError(err).Error("Scan failed")
+		err = s.dataStore.UpdateStatus(scanJobID, job.Failed, err.Error())
 		if err != nil {
 			return fmt.Errorf("updating scan job as failed: %v", err)
 		}
@@ -48,8 +47,14 @@ func (s *scanner) Scan(scanJobID string, req harbor.ScanRequest) error {
 	return nil
 }
 
-func (s *scanner) scan(scanID string, req harbor.ScanRequest) error {
-	err := s.dataStore.UpdateStatus(scanID, job.Queued, job.Pending)
+func (s *scanner) scanE(scanID string, req harbor.ScanRequest) (err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = r.(error)
+		}
+	}()
+
+	err = s.dataStore.UpdateStatus(scanID, job.Pending)
 	if err != nil {
 		return fmt.Errorf("updating scan job status: %v", err)
 	}
@@ -74,12 +79,12 @@ func (s *scanner) scan(scanID string, req harbor.ScanRequest) error {
 
 	microScannerReport, err := s.wrapper.Run(imageRef, dockerConfig)
 	if err != nil {
-		return fmt.Errorf("running microscanner wrapper script: %v", err)
+		return fmt.Errorf("wrapper script failed: %v", err)
 	}
 
 	harborVulnerabilityReport, err := s.transformer.Transform(microScannerReport)
 	if err != nil {
-		return fmt.Errorf("transforming microscanner report to harbor vulnerability report: %v", err)
+		return fmt.Errorf("report transformer failed: %v", err)
 	}
 
 	err = s.dataStore.UpdateReports(scanID, job.ScanReports{
@@ -91,12 +96,12 @@ func (s *scanner) scan(scanID string, req harbor.ScanRequest) error {
 		return fmt.Errorf("saving scan reports: %v", err)
 	}
 
-	err = s.dataStore.UpdateStatus(scanID, job.Pending, job.Finished)
+	err = s.dataStore.UpdateStatus(scanID, job.Finished)
 	if err != nil {
 		return fmt.Errorf("updating scan job status: %v", err)
 	}
 
-	return nil
+	return err
 }
 
 // ToImageRef returns Docker image reference for the given ScanRequest.

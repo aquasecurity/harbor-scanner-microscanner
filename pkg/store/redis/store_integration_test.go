@@ -66,10 +66,7 @@ func TestRedisStore_ScanCRUD(t *testing.T) {
 			Status: job.Queued,
 		}, j)
 
-		err = dataStore.UpdateStatus(scanJobID, job.Pending, job.Finished)
-		assert.EqualError(t, err, "expected status Pending but was Queued")
-
-		err = dataStore.UpdateStatus(scanJobID, job.Queued, job.Pending)
+		err = dataStore.UpdateStatus(scanJobID, job.Pending)
 		require.NoError(t, err)
 
 		j, err = dataStore.GetScanJob(scanJobID)

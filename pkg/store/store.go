@@ -11,8 +11,7 @@ type DataStore interface {
 	// GetScanJob gets a ScanJob for the specified identifier.
 	GetScanJob(scanJobID string) (*job.ScanJob, error)
 	// UpdateStatus updates the status of the specified ScanJob.
-	// Returns an error when the actual state of the ScanJob is different then the specified currentStatus.
-	UpdateStatus(scanJobID string, currentStatus, newStatus job.ScanJobStatus) error
+	UpdateStatus(scanJobID string, newStatus job.ScanJobStatus, error ...string) error
 	// UpdateScanReports updates the ScanReports of the specified ScanJob.
 	UpdateReports(scanJobID string, reports job.ScanReports) error
 }
