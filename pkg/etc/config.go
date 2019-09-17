@@ -6,15 +6,12 @@ import (
 )
 
 const (
-	StoreDriverRedis = "redis"
-
 	defaultRedisURL = "redis://localhost:6379"
 )
 
 type Config struct {
 	APIAddr      string
 	RegistryURL  string
-	StoreDriver  string
 	MicroScanner *MicroScannerConfig
 	RedisStore   *RedisStoreConfig
 	JobQueue     *JobQueueConfig
@@ -46,8 +43,7 @@ type PoolConfig struct {
 
 func GetConfig() (*Config, error) {
 	cfg := &Config{
-		APIAddr:     ":8080",
-		StoreDriver: StoreDriverRedis,
+		APIAddr: ":8080",
 		MicroScanner: &MicroScannerConfig{
 			DockerHost: "tcp://localhost:2375",
 			Options:    "--continue-on-failure --full-output",
@@ -83,14 +79,10 @@ func GetConfig() (*Config, error) {
 		cfg.RegistryURL = registryURL
 	}
 
-	if driver, ok := os.LookupEnv("SCANNER_STORE_DRIVER"); ok {
-		cfg.StoreDriver = driver
-	}
-
 	if microScannerToken, ok := os.LookupEnv("SCANNER_MICROSCANNER_TOKEN"); ok {
 		cfg.MicroScanner.Token = microScannerToken
 	} else {
-		return nil, errors.New("SCANNER_MICROSCANNER_TOKEN not specified")
+		return nil, errors.New("env SCANNER_MICROSCANNER_TOKEN not set")
 	}
 
 	if options, ok := os.LookupEnv("SCANNER_MICROSCANNER_OPTIONS"); ok {

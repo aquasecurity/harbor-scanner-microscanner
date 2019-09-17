@@ -1,14 +1,12 @@
 package main
 
 import (
-	"fmt"
 	"github.com/aquasecurity/harbor-scanner-microscanner/pkg/docker"
 	"github.com/aquasecurity/harbor-scanner-microscanner/pkg/etc"
 	"github.com/aquasecurity/harbor-scanner-microscanner/pkg/http/api/v1"
 	"github.com/aquasecurity/harbor-scanner-microscanner/pkg/job/work"
 	"github.com/aquasecurity/harbor-scanner-microscanner/pkg/microscanner"
 	"github.com/aquasecurity/harbor-scanner-microscanner/pkg/model"
-	"github.com/aquasecurity/harbor-scanner-microscanner/pkg/store"
 	"github.com/aquasecurity/harbor-scanner-microscanner/pkg/store/redis"
 	log "github.com/sirupsen/logrus"
 	"net/http"
@@ -34,7 +32,7 @@ func main() {
 	wrapper := microscanner.NewWrapper(cfg.MicroScanner)
 	transformer := model.NewTransformer()
 
-	dataStore, err := GetDataStore(cfg)
+	dataStore, err := redis.NewDataStore(cfg.RedisStore)
 	if err != nil {
 		log.Fatalf("Error: %v", err)
 	}
@@ -52,14 +50,5 @@ func main() {
 	err = http.ListenAndServe(cfg.APIAddr, apiHandler)
 	if err != nil && err != http.ErrServerClosed {
 		log.Fatalf("Error: %v", err)
-	}
-}
-
-func GetDataStore(cfg *etc.Config) (store.DataStore, error) {
-	switch cfg.StoreDriver {
-	case etc.StoreDriverRedis:
-		return redis.NewDataStore(cfg.RedisStore)
-	default:
-		return nil, fmt.Errorf("unrecognized store type: %s", cfg.StoreDriver)
 	}
 }

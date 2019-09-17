@@ -107,6 +107,7 @@ func TestRequestHandler_AcceptScanRequest(t *testing.T) {
 				ReturnArguments: []interface{}{&job.ScanJob{ID: "job:123"}, nil},
 			},
 			ExpectedHTTPStatus: http.StatusAccepted,
+			ExpectedResponse:   `{"id": "job:123"}`,
 		},
 		{
 			Name:            "Should return error when enqueuing scan job fails",

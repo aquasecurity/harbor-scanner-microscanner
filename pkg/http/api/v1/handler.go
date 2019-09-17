@@ -19,6 +19,7 @@ const (
 
 	mimeTypeMetadata                  = "application/vnd.scanner.adapter.metadata+json; version=1.0"
 	mimeTypeScanRequest               = "application/vnd.scanner.adapter.scan.request+json; version=1.0"
+	mimeTypeScanResponse              = "application/vnd.scanner.adapter.scan.response+json; version=1.0"
 	mimeTypeHarborVulnerabilityReport = "application/vnd.scanner.adapter.vuln.report.harbor+json; version=1.0"
 	mimeTypeMicroScannerReport        = "application/vnd.scanner.adapter.vuln.report.raw"
 
@@ -111,7 +112,7 @@ func (h *requestHandler) AcceptScanRequest(res http.ResponseWriter, req *http.Re
 	log.WithField(fieldScanJobID, scanJob.ID).Debug("Scan job enqueued successfully")
 
 	res.WriteHeader(http.StatusAccepted)
-	res.Header().Set(HeaderContentType, mimeTypeMetadata)
+	res.Header().Set(HeaderContentType, mimeTypeScanResponse)
 	err = json.NewEncoder(res).Encode(harbor.ScanResponse{ID: scanJob.ID})
 	if err != nil {
 		log.Errorf("Error while marshalling scan response: %v", err)
