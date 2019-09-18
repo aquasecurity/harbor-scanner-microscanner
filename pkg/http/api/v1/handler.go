@@ -6,7 +6,6 @@ import (
 	"github.com/aquasecurity/harbor-scanner-microscanner/pkg/job"
 	"github.com/aquasecurity/harbor-scanner-microscanner/pkg/model/harbor"
 	"github.com/aquasecurity/harbor-scanner-microscanner/pkg/store"
-	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	log "github.com/sirupsen/logrus"
 	"net/http"
@@ -20,6 +19,7 @@ const (
 
 	mimeTypeMetadata                  = "application/vnd.scanner.adapter.metadata+json; version=1.0"
 	mimeTypeScanRequest               = "application/vnd.scanner.adapter.scan.request+json; version=1.0"
+	mimeTypeScanResponse              = "application/vnd.scanner.adapter.scan.response+json; version=1.0"
 	mimeTypeHarborVulnerabilityReport = "application/vnd.scanner.adapter.vuln.report.harbor+json; version=1.0"
 	mimeTypeMicroScannerReport        = "application/vnd.scanner.adapter.vuln.report.raw"
 
@@ -29,8 +29,7 @@ const (
 	pathScanReport       = "/scan/{scanRequestID}/report"
 	pathVarScanRequestID = "scanRequestID"
 
-	fieldScanJob       = "scan_job"
-	fieldScanRequestID = "scan_request_id"
+	fieldScanJobID = "scan_job_id"
 )
 
 type requestHandler struct {
@@ -95,36 +94,37 @@ func (h *requestHandler) AcceptScanRequest(res http.ResponseWriter, req *http.Re
 		return
 	}
 
-	reqLog := log.WithField(fieldScanRequestID, scanRequest.ID)
-
 	if validationError := h.ValidateScanRequest(scanRequest); validationError != nil {
-		reqLog.Errorf("Error while validating scan request: %s", validationError.Message)
+		log.Errorf("Error while validating scan request: %s", validationError.Message)
 		h.SendJSONError(res, *validationError)
 		return
 	}
 
 	scanJob, err := h.jobQueue.EnqueueScanJob(scanRequest)
 	if err != nil {
-		reqLog.WithError(err).Error("Error while enqueuing scan job")
+		log.WithError(err).Error("Error while enqueuing scan job")
 		h.SendJSONError(res, harbor.Error{
 			HTTPCode: http.StatusInternalServerError,
 			Message:  fmt.Sprintf("enqueuing scan job: %s", err.Error()),
 		})
 		return
 	}
-	reqLog.WithField(fieldScanJob, scanJob.ID).Debug("Scan job enqueued successfully")
+	log.WithField(fieldScanJobID, scanJob.ID).Debug("Scan job enqueued successfully")
 
 	res.WriteHeader(http.StatusAccepted)
+	res.Header().Set(HeaderContentType, mimeTypeScanResponse)
+	err = json.NewEncoder(res).Encode(harbor.ScanResponse{ID: scanJob.ID})
+	if err != nil {
+		log.Errorf("Error while marshalling scan response: %v", err)
+		h.SendJSONError(res, harbor.Error{
+			HTTPCode: http.StatusInternalServerError,
+			Message:  fmt.Sprintf("marshaling scan response: %s", err.Error()),
+		})
+		return
+	}
 }
 
 func (h *requestHandler) ValidateScanRequest(req harbor.ScanRequest) *harbor.Error {
-	if req.ID == "" {
-		return &harbor.Error{
-			HTTPCode: http.StatusUnprocessableEntity,
-			Message:  "missing id",
-		}
-	}
-
 	if req.Registry.URL == "" {
 		return &harbor.Error{
 			HTTPCode: http.StatusUnprocessableEntity,
@@ -160,50 +160,34 @@ func (h *requestHandler) ValidateScanRequest(req harbor.ScanRequest) *harbor.Err
 func (h *requestHandler) GetScanReport(res http.ResponseWriter, req *http.Request) {
 	log.Debug("Get scan report request received")
 	vars := mux.Vars(req)
-	scanRequestID, ok := vars[pathVarScanRequestID]
+	scanJobID, ok := vars[pathVarScanRequestID]
 	if !ok {
 		http.Error(res, "Bad Request", http.StatusBadRequest)
 		return
 	}
 
-	scanID, err := uuid.Parse(scanRequestID)
-	if err != nil {
-		log.WithError(err).WithFields(log.Fields{
-			fieldScanRequestID: scanRequestID,
-		}).Error("Error while parsing scan request ID")
-		h.SendInternalServerError(res)
-		return
-	}
-
-	scanJob, err := h.jobQueue.GetScanJob(scanID)
+	scanJob, err := h.dataStore.GetScanJob(scanJobID)
 	if scanJob == nil {
-		log.Errorf("Cannot find scan job for the given scan request ID: %v", scanID)
+		log.Errorf("Cannot find scan job: %v", scanJobID)
 		http.Error(res, "Not Found", http.StatusNotFound)
 		return
 	}
 
 	if scanJob.Status == job.Queued || scanJob.Status == job.Pending {
-		log.Debugf("Scan job has not finished yet: %v", scanJob)
+		log.Debugf("Scan job has not finished yet: %v (%v)", scanJob.ID, scanJob.Status)
 		res.Header().Set(headerRefreshAfter, "15")
 		res.WriteHeader(http.StatusFound)
 		return
 	}
 
 	if scanJob.Status == job.Failed {
-		log.Errorf("Scan job failed for the given scan request ID: %v", scanID)
+		log.Errorf("Scan job failed: %v", scanJobID)
 		h.SendInternalServerError(res)
 		return
 	}
 
 	if scanJob.Status != job.Finished {
-		log.Errorf("Unexpected scan job status: %v", scanJob)
-		h.SendInternalServerError(res)
-		return
-	}
-
-	scanReports, err := h.dataStore.GetScanReports(scanID)
-	if scanReports == nil {
-		log.Errorf("Cannot find scan reports for the given scan request ID: %v", scanID)
+		log.Errorf("Unexpected scan job status: %v (%v)", scanJob.ID, scanJob.Status)
 		h.SendInternalServerError(res)
 		return
 	}
@@ -211,7 +195,7 @@ func (h *requestHandler) GetScanReport(res http.ResponseWriter, req *http.Reques
 	switch reportMIMEType := h.GetReportMIMEType(req); reportMIMEType {
 	case mimeTypeHarborVulnerabilityReport, "":
 		res.Header().Set(HeaderContentType, reportMIMEType)
-		err = json.NewEncoder(res).Encode(scanReports.HarborVulnerabilityReport)
+		err = json.NewEncoder(res).Encode(scanJob.Reports.HarborVulnerabilityReport)
 		if err != nil {
 			log.Errorf("Error while marshalling Harbor vulnerability report: %v", err)
 			h.SendInternalServerError(res)
@@ -219,7 +203,7 @@ func (h *requestHandler) GetScanReport(res http.ResponseWriter, req *http.Reques
 		return
 	case mimeTypeMicroScannerReport:
 		res.Header().Set(HeaderContentType, reportMIMEType)
-		err = json.NewEncoder(res).Encode(scanReports.MicroScannerReport)
+		err = json.NewEncoder(res).Encode(scanJob.Reports.MicroScannerReport)
 		if err != nil {
 			log.Errorf("Error while marshalling MicroScanner report: %v", err)
 			h.SendInternalServerError(res)

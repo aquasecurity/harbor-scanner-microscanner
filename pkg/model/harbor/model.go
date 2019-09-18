@@ -25,9 +25,12 @@ type Artifact struct {
 }
 
 type ScanRequest struct {
-	ID       string   `json:"id"`
 	Registry Registry `json:"registry"`
 	Artifact Artifact `json:"artifact"`
+}
+
+type ScanResponse struct {
+	ID string `json:"id"`
 }
 
 type VulnerabilityReport struct {

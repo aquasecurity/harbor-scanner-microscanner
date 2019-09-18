@@ -62,7 +62,6 @@ See [Pluggable Image Vulnerability Scanning Proposal][image-vulnerability-scanni
 | `SCANNER_DOCKER_HOST`           | `tcp://localhost:2375`   | Docker Engine URL |
 | `SCANNER_MICROSCANNER_TOKEN`    |                          | A token issued by Aqua Security for using the MicroScanner. |
 | `SCANNER_MICROSCANNER_OPTIONS`  | `--continue-on-failure --full-output` | Additional options passed as CLI arguments to the MicroScanner. |
-| `SCANNER_STORE_DRIVER`          | `redis`                  | A driver used to store scan requests and reports. |
 | `SCANNER_STORE_REDIS_URL`       | `redis://localhost:6379`            | Redis server URL in Redis URI scheme for a redis store. |
 | `SCANNER_STORE_REDIS_NAMESPACE` | `harbor.scanner.microscanner:store` | A namespace for keys in a redis store. |
 | `SCANNER_STORE_REDIS_POOL_MAX_ACTIVE` | 5 | The max number of connections allocated by the pool for a redis store. |

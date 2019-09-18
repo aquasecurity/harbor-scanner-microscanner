@@ -1,13 +1,10 @@
 package microscanner
 
 import (
-	"errors"
 	"github.com/aquasecurity/harbor-scanner-microscanner/pkg/job"
 	"github.com/aquasecurity/harbor-scanner-microscanner/pkg/mocks"
 	"github.com/aquasecurity/harbor-scanner-microscanner/pkg/model/harbor"
 	"github.com/aquasecurity/harbor-scanner-microscanner/pkg/model/microscanner"
-	"github.com/aquasecurity/harbor-scanner-microscanner/pkg/store"
-	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"io/ioutil"
@@ -20,9 +17,8 @@ func TestScanner_Scan(t *testing.T) {
 	configFileName := filepath.Join(tmpDir, "config.json")
 
 	require.NoError(t, err)
-	scanID := uuid.New()
+	scanID := "job:123"
 	scanRequest := harbor.ScanRequest{
-		ID: scanID.String(),
 		Registry: harbor.Registry{
 			URL: "https://core.harbor.domain:433",
 		},
@@ -33,7 +29,7 @@ func TestScanner_Scan(t *testing.T) {
 	}
 	harborReport := &harbor.VulnerabilityReport{}
 	microScannerReport := &microscanner.ScanReport{}
-	scanReports := &store.ScanReports{
+	scanReports := &job.ScanReports{
 		HarborVulnerabilityReport: harborReport,
 		MicroScannerReport:        microScannerReport,
 	}
@@ -45,7 +41,7 @@ func TestScanner_Scan(t *testing.T) {
 		ScanRequest            harbor.ScanRequest
 		MicroScannerReport     *microscanner.ScanReport
 		HarborReport           *harbor.VulnerabilityReport
-		ScanReports            *store.ScanReports
+		ScanReports            *job.ScanReports
 		AuthorizerExpectation  *mocks.Expectation
 		WrapperExpectation     *mocks.Expectation
 		TransformerExpectation *mocks.Expectation
@@ -76,29 +72,22 @@ func TestScanner_Scan(t *testing.T) {
 			},
 			DataStoreExpectations: []*mocks.Expectation{
 				{
-					MethodName:      "UpdateScanJobStatus",
+					MethodName:      "UpdateStatus",
 					Arguments:       []interface{}{scanID, job.Queued, job.Pending},
 					ReturnArguments: []interface{}{nil},
 				},
 				{
-					MethodName:      "SaveScanReports",
-					Arguments:       []interface{}{scanID, scanReports},
+					MethodName:      "UpdateReports",
+					Arguments:       []interface{}{scanID, *scanReports},
 					ReturnArguments: []interface{}{nil},
 				},
 				{
-					MethodName:      "UpdateScanJobStatus",
+					MethodName:      "UpdateStatus",
 					Arguments:       []interface{}{scanID, job.Pending, job.Finished},
 					ReturnArguments: []interface{}{nil},
 				},
 			},
 			ExpectedError: nil,
-		},
-		{
-			Name: "Should return error when scan ID is not a valid UUID",
-			ScanRequest: harbor.ScanRequest{
-				ID: "INVALID_UUID",
-			},
-			ExpectedError: errors.New("parsing scan request ID: invalid UUID length: 12"),
 		},
 	}
 
@@ -120,7 +109,7 @@ func TestScanner_Scan(t *testing.T) {
 
 			scanner := NewScanner(authorizer, wrapper, transformer, dataStore)
 
-			err := scanner.Scan(tc.ScanRequest)
+			err := scanner.Scan(scanID, tc.ScanRequest)
 			assert.Equal(t, tc.ExpectedError, err)
 
 			authorizer.AssertExpectations(t)

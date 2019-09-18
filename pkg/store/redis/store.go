@@ -8,7 +8,6 @@ import (
 	"github.com/aquasecurity/harbor-scanner-microscanner/pkg/job"
 	"github.com/aquasecurity/harbor-scanner-microscanner/pkg/store"
 	"github.com/gomodule/redigo/redis"
-	"github.com/google/uuid"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -34,7 +33,11 @@ func NewDataStore(cfg *etc.RedisStoreConfig) (store.DataStore, error) {
 	}, nil
 }
 
-func (rs *redisStore) SaveScanJob(scanID uuid.UUID, scanJob *job.ScanJob) error {
+func (rs *redisStore) SaveScanJob(scanJob *job.ScanJob) error {
+	if scanJob.ID == "" {
+		return errors.New("ID must not be blank")
+	}
+
 	conn := rs.cp.Get()
 	defer rs.close(conn)
 
@@ -43,7 +46,7 @@ func (rs *redisStore) SaveScanJob(scanID uuid.UUID, scanJob *job.ScanJob) error 
 		return err
 	}
 
-	key := rs.getKeyForScanJob(scanID)
+	key := rs.getKeyForScanJob(scanJob.ID)
 	_, err = conn.Do("SET", key, string(b))
 	if err != nil {
 		return err
@@ -51,7 +54,7 @@ func (rs *redisStore) SaveScanJob(scanID uuid.UUID, scanJob *job.ScanJob) error 
 	return nil
 }
 
-func (rs *redisStore) GetScanJob(scanID uuid.UUID) (*job.ScanJob, error) {
+func (rs *redisStore) GetScanJob(scanID string) (*job.ScanJob, error) {
 	conn := rs.cp.Get()
 	defer rs.close(conn)
 
@@ -73,12 +76,12 @@ func (rs *redisStore) GetScanJob(scanID uuid.UUID) (*job.ScanJob, error) {
 	return &scanJob, nil
 }
 
-func (rs *redisStore) UpdateScanJobStatus(scanID uuid.UUID, currentStatus, newStatus job.ScanJobStatus) error {
+func (rs *redisStore) UpdateStatus(scanID string, currentStatus, newStatus job.ScanJobStatus) error {
 	log.WithFields(log.Fields{
-		"scan_job":       scanID.String(),
+		"scan_job_id":    scanID,
 		"current_status": currentStatus.String(),
 		"new_status":     newStatus.String(),
-	}).Debug("Updating job status")
+	}).Debug("Updating status for scan job")
 
 	scanJob, err := rs.GetScanJob(scanID)
 	if err != nil {
@@ -89,51 +92,25 @@ func (rs *redisStore) UpdateScanJobStatus(scanID uuid.UUID, currentStatus, newSt
 	}
 
 	scanJob.Status = newStatus
-	return rs.SaveScanJob(scanID, scanJob)
+	return rs.SaveScanJob(scanJob)
 }
 
-func (rs *redisStore) SaveScanReports(scanID uuid.UUID, scanReports *store.ScanReports) error {
-	conn := rs.cp.Get()
-	defer rs.close(conn)
+func (rs *redisStore) UpdateReports(scanJobID string, reports job.ScanReports) error {
+	log.WithFields(log.Fields{
+		"scan_job_id": scanJobID,
+	}).Debug("Updating reports for scan job")
 
-	b, err := json.Marshal(scanReports)
+	scanJob, err := rs.GetScanJob(scanJobID)
 	if err != nil {
 		return err
 	}
 
-	key := rs.getKeyForScanReports(scanID)
-	_, err = conn.Do("SET", key, string(b))
-	return err
+	scanJob.Reports = &reports
+	return rs.SaveScanJob(scanJob)
 }
 
-func (rs *redisStore) GetScanReports(scanID uuid.UUID) (*store.ScanReports, error) {
-	conn := rs.cp.Get()
-	defer rs.close(conn)
-
-	key := rs.getKeyForScanReports(scanID)
-	value, err := redis.String(conn.Do("GET", key))
-	if err != nil {
-		if err == redis.ErrNil {
-			return nil, nil
-		}
-		return nil, err
-	}
-
-	var scanReports store.ScanReports
-	err = json.Unmarshal([]byte(value), &scanReports)
-	if err != nil {
-		return nil, err
-	}
-
-	return &scanReports, nil
-}
-
-func (rs *redisStore) getKeyForScanJob(scanID uuid.UUID) string {
-	return fmt.Sprintf("%s:scan-job:%s", rs.namespace, scanID.String())
-}
-
-func (rs *redisStore) getKeyForScanReports(scanID uuid.UUID) string {
-	return fmt.Sprintf("%s:scan-reports:%s", rs.namespace, scanID.String())
+func (rs *redisStore) getKeyForScanJob(scanID string) string {
+	return fmt.Sprintf("%s:scan-job:%s", rs.namespace, scanID)
 }
 
 func (rs *redisStore) close(conn redis.Conn) {

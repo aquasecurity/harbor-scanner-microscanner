@@ -13,7 +13,7 @@ func NewScanner() *ScannerMock {
 	return &ScannerMock{}
 }
 
-func (m *ScannerMock) Scan(req harbor.ScanRequest) error {
-	args := m.Called(req)
+func (m *ScannerMock) Scan(scanJobID string, req harbor.ScanRequest) error {
+	args := m.Called(scanJobID, req)
 	return args.Error(0)
 }
