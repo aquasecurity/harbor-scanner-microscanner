@@ -53,23 +53,28 @@ func NewAPIHandler(jobQueue job.Queue, dataStore store.DataStore) http.Handler {
 	return router
 }
 
-// TODO https://github.com/aquasecurity/harbor-scanner-microscanner/issues/16
 func (h *requestHandler) GetMetadata(res http.ResponseWriter, req *http.Request) {
 	md := &harbor.ScannerMetadata{
-		Name:    "MicroScanner",
-		Vendor:  "Aqua Security",
-		Version: "3.0.5",
+		Scanner: harbor.Scanner{
+			Name:    "MicroScanner",
+			Vendor:  "Aqua Security",
+			Version: "3.0.5",
+		},
 		Capabilities: []*harbor.Capability{
 			{
-				ArtifactMIMETypes: []string{
+				ConsumesMIMETypes: []string{
 					"application/vnd.oci.image.manifest.v1+json",
 					"application/vnd.docker.distribution.manifest.v2+json",
 				},
-				ReportMIMETypes: []string{
+				ProducesMIMETypes: []string{
 					mimeTypeHarborVulnerabilityReport,
 					mimeTypeMicroScannerReport,
 				},
 			},
+		},
+		Properties: map[string]string{
+			"harbor.scanner-adapter/scanner-type":                      "os-package-vulnerability",
+			"harbor.scanner-adapter/vulnerability-database-updated-at": "",
 		},
 	}
 
