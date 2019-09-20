@@ -9,11 +9,13 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
-// RegistryAuth wraps Docker registry access token.
+// RegistryAuth wraps Docker registry credentials.
 type RegistryAuth struct {
-	Token string `json:"registrytoken"`
+	Basic  string `json:"auth,omitempty"`
+	Bearer string `json:"registrytoken,omitempty"`
 }
 
 // Config represents Docker configuration file, typically stored in `$HOME/.docker/config.json`.
@@ -49,6 +51,20 @@ func NewAuthorizer() Authorizer {
 }
 
 func (a *authorizer) Authorize(req harbor.ScanRequest) (string, error) {
+	auth, err := a.toRegistryAuth(req.Registry.Authorization)
+	if err != nil {
+		return "", err
+	}
+
+	config := &Config{
+		Auths: map[string]RegistryAuth{
+			req.Registry.URL: auth,
+		},
+		HTTPHeaders: map[string]string{
+			"User-Agent": "Harbor Scanner MicroScanner",
+		},
+	}
+
 	tmpDir, err := ioutil.TempDir("", "docker")
 	if err != nil {
 		return "", xerrors.Errorf("creating temporary directory: %w", err)
@@ -64,20 +80,28 @@ func (a *authorizer) Authorize(req harbor.ScanRequest) (string, error) {
 		}
 	}()
 
-	config := &Config{
-		Auths: map[string]RegistryAuth{
-			req.Registry.URL: {
-				Token: req.Registry.Authorization,
-			},
-		},
-		HTTPHeaders: map[string]string{
-			"User-Agent": "Harbor Scanner MicroScanner",
-		},
-	}
-
 	err = config.write(configFile)
 	if err != nil {
 		return "", xerrors.Errorf("saving Docker config file: %w", err)
 	}
 	return configFileName, nil
+}
+
+func (a *authorizer) toRegistryAuth(authorization string) (RegistryAuth, error) {
+	var auth RegistryAuth
+	tokens := strings.Split(authorization, " ")
+	if len(tokens) != 2 {
+		return auth, xerrors.Errorf("parsing authorization: expected format <type> <credentials>: got: %s", authorization)
+	}
+	switch tokens[0] {
+	case "Basic":
+		return RegistryAuth{
+			Basic: tokens[1],
+		}, nil
+	case "Bearer":
+		return RegistryAuth{
+			Bearer: tokens[1],
+		}, nil
+	}
+	return auth, xerrors.Errorf("unrecognized authorization type: %s", tokens[0])
 }
