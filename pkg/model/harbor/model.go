@@ -50,15 +50,20 @@ type VulnerabilityItem struct {
 }
 
 type ScannerMetadata struct {
-	Name         string        `json:"name"`
-	Vendor       string        `json:"vendor"`
-	Version      string        `json:"version"`
-	Capabilities []*Capability `json:"capabilities"`
+	Scanner      Scanner           `json:"scanner"`
+	Capabilities []*Capability     `json:"capabilities"`
+	Properties   map[string]string `json:"properties"`
+}
+
+type Scanner struct {
+	Name    string `json:"name"`
+	Vendor  string `json:"vendor"`
+	Version string `json:"version"`
 }
 
 type Capability struct {
-	ArtifactMIMETypes []string `json:"artifact_mime_types"`
-	ReportMIMETypes   []string `json:"report_mime_types"`
+	ConsumesMIMETypes []string `json:"consumes_mime_types"`
+	ProducesMIMETypes []string `json:"produces_mime_types"`
 }
 
 // Error holds the information about an error, including metadata about its JSON structure.
