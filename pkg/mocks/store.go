@@ -23,8 +23,8 @@ func (m *DataStoreMock) GetScanJob(scanJobID string) (*job.ScanJob, error) {
 	return args.Get(0).(*job.ScanJob), args.Error(1)
 }
 
-func (m *DataStoreMock) UpdateStatus(scanJobID string, currentStatus, newStatus job.ScanJobStatus) error {
-	args := m.Called(scanJobID, currentStatus, newStatus)
+func (m *DataStoreMock) UpdateStatus(scanJobID string, newStatus job.ScanJobStatus, error ...string) error {
+	args := m.Called(scanJobID, newStatus, error)
 	return args.Error(0)
 }
 

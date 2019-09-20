@@ -8,6 +8,7 @@ import (
 	"github.com/aquasecurity/harbor-scanner-microscanner/pkg/model/harbor"
 	"github.com/aquasecurity/harbor-scanner-microscanner/pkg/model/microscanner"
 	"github.com/stretchr/testify/assert"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -17,6 +18,7 @@ import (
 type Request struct {
 	Method  string
 	Target  string
+	Body    io.Reader
 	Headers http.Header
 }
 
@@ -47,14 +49,10 @@ func TestRequestHandler_GetMetadata(t *testing.T) {
 			jobQueue := mocks.NewJobQueue()
 			dataStore := mocks.NewDataStore()
 
-			// and
-			handler := NewAPIHandler(jobQueue, dataStore)
-			// and
 			request := NewHTTPRequest(td.Request)
 			response := httptest.NewRecorder()
 
-			// when
-			handler.ServeHTTP(response, request)
+			NewAPIHandler(jobQueue, dataStore).ServeHTTP(response, request)
 
 			// then
 			assert.Equal(t, td.Response.Code, response.Code)
@@ -90,17 +88,21 @@ func TestRequestHandler_AcceptScanRequest(t *testing.T) {
 `
 
 	testCases := []struct {
-		Name string
-
-		ScanRequestJSON     string
+		Name                string
+		Request             Request
 		JobQueueExpectation *mocks.Expectation
 
 		ExpectedHTTPStatus int
 		ExpectedResponse   string
 	}{
 		{
-			Name:            "Should accept a scan request",
-			ScanRequestJSON: scanRequestJSON,
+			Name: "Should accept a scan request",
+			Request: Request{
+				Method:  http.MethodPost,
+				Target:  "/api/v1/scan",
+				Body:    strings.NewReader(scanRequestJSON),
+				Headers: map[string][]string{HeaderContentType: {mimeTypeScanRequest}},
+			},
 			JobQueueExpectation: &mocks.Expectation{
 				MethodName:      "EnqueueScanJob",
 				Arguments:       []interface{}{scanRequest},
@@ -110,9 +112,13 @@ func TestRequestHandler_AcceptScanRequest(t *testing.T) {
 			ExpectedResponse:   `{"id": "job:123"}`,
 		},
 		{
-			Name:            "Should return error when enqueuing scan job fails",
-			ScanRequestJSON: scanRequestJSON,
-			JobQueueExpectation: &mocks.Expectation{
+			Name: "Should return error when enqueuing scan job fails",
+			Request: Request{
+				Method:  http.MethodPost,
+				Target:  "/api/v1/scan",
+				Body:    strings.NewReader(scanRequestJSON),
+				Headers: map[string][]string{HeaderContentType: {mimeTypeScanRequest}},
+			}, JobQueueExpectation: &mocks.Expectation{
 				MethodName:      "EnqueueScanJob",
 				Arguments:       []interface{}{scanRequest},
 				ReturnArguments: []interface{}{(*job.ScanJob)(nil), errors.New("queue failed")},
@@ -121,14 +127,24 @@ func TestRequestHandler_AcceptScanRequest(t *testing.T) {
 			ExpectedResponse:   `{"error": {"message": "enqueuing scan job: queue failed"}}`,
 		},
 		{
-			Name:               "Should return error when scan request cannot be parsed",
-			ScanRequestJSON:    "THIS AIN'T PARSE",
+			Name: "Should return error when scan request cannot be parsed",
+			Request: Request{
+				Method:  http.MethodPost,
+				Target:  "/api/v1/scan",
+				Body:    strings.NewReader("THIS AIN'T PARSE"),
+				Headers: map[string][]string{HeaderContentType: {mimeTypeScanRequest}},
+			},
 			ExpectedHTTPStatus: http.StatusBadRequest,
 			ExpectedResponse:   `{"error": {"message": "unmarshalling scan request: invalid character 'T' looking for beginning of value"}}`,
 		},
 		{
-			Name:               "Should return error when scan request cannot be processed",
-			ScanRequestJSON:    `{"id": "ABC", "registry": {"url": "INVALID URL"}}`,
+			Name: "Should return error when scan request cannot be processed",
+			Request: Request{
+				Method:  http.MethodPost,
+				Target:  "/api/v1/scan",
+				Body:    strings.NewReader(`{"id": "ABC", "registry": {"url": "INVALID URL"}}`),
+				Headers: map[string][]string{HeaderContentType: {mimeTypeScanRequest}},
+			},
 			ExpectedHTTPStatus: http.StatusUnprocessableEntity,
 			ExpectedResponse:   `{"error": {"message": "invalid registry.url"}}`,
 		},
@@ -141,16 +157,11 @@ func TestRequestHandler_AcceptScanRequest(t *testing.T) {
 
 			mocks.ApplyExpectations(t, jobQueue, tc.JobQueueExpectation)
 
-			handler := NewAPIHandler(jobQueue, dataStore)
-
-			request := httptest.NewRequest(http.MethodPost, "/api/v1/scan", strings.NewReader(tc.ScanRequestJSON))
-			request.Header.Set(HeaderContentType, mimeTypeScanRequest)
+			request := NewHTTPRequest(tc.Request)
 			response := httptest.NewRecorder()
 
-			// when
-			handler.ServeHTTP(response, request)
+			NewAPIHandler(jobQueue, dataStore).ServeHTTP(response, request)
 
-			// then
 			assert.Equal(t, tc.ExpectedHTTPStatus, response.Code)
 			if tc.ExpectedResponse != "" {
 				assert.JSONEq(t, tc.ExpectedResponse, response.Body.String())
@@ -350,6 +361,7 @@ func TestRequestHandler_GetScanReport(t *testing.T) {
 			},
 			Response: Response{
 				Code: http.StatusNotFound,
+				Body: `{"error": {"message": "cannot find scan job: job:123"}}`,
 			},
 		},
 		{
@@ -394,13 +406,40 @@ func TestRequestHandler_GetScanReport(t *testing.T) {
 			},
 			DataStoreExpectation: []*mocks.Expectation{
 				{
-					MethodName:      "GetScanJob",
-					Arguments:       []interface{}{scanRequestID},
-					ReturnArguments: []interface{}{&job.ScanJob{Status: job.Failed}, nil},
+					MethodName: "GetScanJob",
+					Arguments:  []interface{}{scanRequestID},
+					ReturnArguments: []interface{}{
+						&job.ScanJob{
+							Status: job.Failed,
+							Error:  "it failed badly",
+						}, nil},
 				},
 			},
 			Response: Response{
 				Code: http.StatusInternalServerError,
+				Body: `{"error": {"message": "it failed badly"}}`,
+			},
+		},
+		{
+			Scenario: "Should return 500 Internal Server Error when scan job has unknown status",
+			Request: Request{
+				Method: http.MethodGet,
+				Target: fmt.Sprintf("/api/v1/scan/%s/report", scanRequestID),
+			},
+			DataStoreExpectation: []*mocks.Expectation{
+				{
+					MethodName: "GetScanJob",
+					Arguments:  []interface{}{scanRequestID},
+					ReturnArguments: []interface{}{
+						&job.ScanJob{
+							ID:     "job:123",
+							Status: -1,
+						}, nil},
+				},
+			},
+			Response: Response{
+				Code: http.StatusInternalServerError,
+				Body: `{"error": {"message": "unexpected status Unknown of scan job job:123"}}`,
 			},
 		},
 		{
@@ -490,6 +529,32 @@ func TestRequestHandler_GetScanReport(t *testing.T) {
 				Body: microScannerReportJSON,
 			},
 		},
+		{
+			Scenario: "Should return error when MIME type is unknown",
+			Request: Request{
+				Method: http.MethodGet,
+				Target: fmt.Sprintf("/api/v1/scan/%s/report", scanRequestID),
+				Headers: map[string][]string{
+					headerAccept: {"UNKNOWN_MIME_TYPE"},
+				},
+			},
+			DataStoreExpectation: []*mocks.Expectation{
+				{
+					MethodName: "GetScanJob",
+					Arguments:  []interface{}{scanRequestID},
+					ReturnArguments: []interface{}{
+						&job.ScanJob{
+							ID:     scanRequestID,
+							Status: job.Finished,
+						},
+						nil},
+				},
+			},
+			Response: Response{
+				Code: http.StatusUnprocessableEntity,
+				Body: `{"error": {"message": "unrecognized report MIME type: UNKNOWN_MIME_TYPE"}}`,
+			},
+		},
 	}
 
 	for _, td := range testCases {
@@ -503,16 +568,11 @@ func TestRequestHandler_GetScanReport(t *testing.T) {
 
 			mocks.ApplyExpectations(t, dataStore, td.DataStoreExpectation...)
 
-			// and
-			handler := NewAPIHandler(jobQueue, dataStore)
-			// and
 			request := NewHTTPRequest(td.Request)
 			response := httptest.NewRecorder()
 
-			// when
-			handler.ServeHTTP(response, request)
+			NewAPIHandler(jobQueue, dataStore).ServeHTTP(response, request)
 
-			// then
 			assert.Equal(t, td.Response.Code, response.Code)
 			if td.Response.Body != "" {
 				assert.JSONEq(t, td.Response.Body, response.Body.String())
@@ -526,7 +586,7 @@ func TestRequestHandler_GetScanReport(t *testing.T) {
 }
 
 func NewHTTPRequest(request Request) *http.Request {
-	httpRequest := httptest.NewRequest(request.Method, request.Target, nil)
+	httpRequest := httptest.NewRequest(request.Method, request.Target, request.Body)
 	for key, values := range request.Headers {
 		for _, value := range values {
 			httpRequest.Header.Set(key, value)

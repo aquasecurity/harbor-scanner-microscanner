@@ -26,8 +26,8 @@ const (
 	pathAPIPrefix        = "/api/v1"
 	pathMetadata         = "/metadata"
 	pathScan             = "/scan"
-	pathScanReport       = "/scan/{scanRequestID}/report"
-	pathVarScanRequestID = "scanRequestID"
+	pathScanReport       = "/scan/{scan_request_id}/report"
+	pathVarScanRequestID = "scan_request_id"
 
 	fieldScanJobID = "scan_job_id"
 )
@@ -116,8 +116,9 @@ func (h *requestHandler) AcceptScanRequest(res http.ResponseWriter, req *http.Re
 	}
 	log.WithField(fieldScanJobID, scanJob.ID).Debug("Scan job enqueued successfully")
 
-	res.WriteHeader(http.StatusAccepted)
 	res.Header().Set(HeaderContentType, mimeTypeScanResponse)
+	res.WriteHeader(http.StatusAccepted)
+
 	err = json.NewEncoder(res).Encode(harbor.ScanResponse{ID: scanJob.ID})
 	if err != nil {
 		log.Errorf("Error while marshalling scan response: %v", err)
@@ -167,33 +168,48 @@ func (h *requestHandler) GetScanReport(res http.ResponseWriter, req *http.Reques
 	vars := mux.Vars(req)
 	scanJobID, ok := vars[pathVarScanRequestID]
 	if !ok {
-		http.Error(res, "Bad Request", http.StatusBadRequest)
+		log.Error("Error while parsing `scan_request_id` path variable")
+		h.SendJSONError(res, harbor.Error{
+			HTTPCode: http.StatusBadRequest,
+			Message:  "missing scan_request_id",
+		})
 		return
 	}
 
+	reqLog := log.WithField("scan_job_id", scanJobID)
+
 	scanJob, err := h.dataStore.GetScanJob(scanJobID)
 	if scanJob == nil {
-		log.Errorf("Cannot find scan job: %v", scanJobID)
-		http.Error(res, "Not Found", http.StatusNotFound)
+		reqLog.Error("Cannot find scan job")
+		h.SendJSONError(res, harbor.Error{
+			HTTPCode: http.StatusNotFound,
+			Message:  fmt.Sprintf("cannot find scan job: %v", scanJobID),
+		})
 		return
 	}
 
 	if scanJob.Status == job.Queued || scanJob.Status == job.Pending {
-		log.Debugf("Scan job has not finished yet: %v (%v)", scanJob.ID, scanJob.Status)
+		reqLog.WithField("scan_job_status", scanJob.Status).Debug("Scan job has not finished yet")
 		res.Header().Set(headerRefreshAfter, "15")
 		res.WriteHeader(http.StatusFound)
 		return
 	}
 
 	if scanJob.Status == job.Failed {
-		log.Errorf("Scan job failed: %v", scanJobID)
-		h.SendInternalServerError(res)
+		reqLog.WithField(log.ErrorKey, scanJob.Error).Error("Scan job failed")
+		h.SendJSONError(res, harbor.Error{
+			HTTPCode: http.StatusInternalServerError,
+			Message:  scanJob.Error,
+		})
 		return
 	}
 
 	if scanJob.Status != job.Finished {
-		log.Errorf("Unexpected scan job status: %v (%v)", scanJob.ID, scanJob.Status)
-		h.SendInternalServerError(res)
+		reqLog.WithField("scan_job_status", scanJob.Status).Error("Unexpected scan job status")
+		h.SendJSONError(res, harbor.Error{
+			HTTPCode: http.StatusInternalServerError,
+			Message:  fmt.Sprintf("unexpected status %v of scan job %v", scanJob.Status, scanJob.ID),
+		})
 		return
 	}
 
@@ -202,21 +218,28 @@ func (h *requestHandler) GetScanReport(res http.ResponseWriter, req *http.Reques
 		res.Header().Set(HeaderContentType, reportMIMEType)
 		err = json.NewEncoder(res).Encode(scanJob.Reports.HarborVulnerabilityReport)
 		if err != nil {
-			log.Errorf("Error while marshalling Harbor vulnerability report: %v", err)
-			h.SendInternalServerError(res)
+			reqLog.WithError(err).Error("Error while marshalling Harbor vulnerability report")
+			h.SendJSONError(res, harbor.Error{
+				HTTPCode: http.StatusInternalServerError,
+				Message:  fmt.Sprintf("marshalling Harbor vulnerability report: %v", err),
+			})
 		}
-		return
 	case mimeTypeMicroScannerReport:
 		res.Header().Set(HeaderContentType, reportMIMEType)
 		err = json.NewEncoder(res).Encode(scanJob.Reports.MicroScannerReport)
 		if err != nil {
-			log.Errorf("Error while marshalling MicroScanner report: %v", err)
-			h.SendInternalServerError(res)
+			reqLog.WithError(err).Error("Error while marshalling MicroScanner report")
+			h.SendJSONError(res, harbor.Error{
+				HTTPCode: http.StatusInternalServerError,
+				Message:  fmt.Sprintf("marshalling MicroScanner report: %v", err),
+			})
 		}
-		return
 	default:
-		http.Error(res, "Unrecognized report MIME type", http.StatusUnprocessableEntity)
-		return
+		reqLog.Errorf("Unrecognized report MIME type: %v", reportMIMEType)
+		h.SendJSONError(res, harbor.Error{
+			HTTPCode: http.StatusUnprocessableEntity,
+			Message:  fmt.Sprintf("unrecognized report MIME type: %v", reportMIMEType),
+		})
 	}
 }
 

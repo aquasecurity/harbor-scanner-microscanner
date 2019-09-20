@@ -54,11 +54,11 @@ func (rs *redisStore) SaveScanJob(scanJob *job.ScanJob) error {
 	return nil
 }
 
-func (rs *redisStore) GetScanJob(scanID string) (*job.ScanJob, error) {
+func (rs *redisStore) GetScanJob(scanJobID string) (*job.ScanJob, error) {
 	conn := rs.cp.Get()
 	defer rs.close(conn)
 
-	key := rs.getKeyForScanJob(scanID)
+	key := rs.getKeyForScanJob(scanJobID)
 	value, err := redis.String(conn.Do("GET", key))
 	if err != nil {
 		if err == redis.ErrNil {
@@ -76,22 +76,22 @@ func (rs *redisStore) GetScanJob(scanID string) (*job.ScanJob, error) {
 	return &scanJob, nil
 }
 
-func (rs *redisStore) UpdateStatus(scanID string, currentStatus, newStatus job.ScanJobStatus) error {
+func (rs *redisStore) UpdateStatus(scanJobID string, newStatus job.ScanJobStatus, error ...string) error {
 	log.WithFields(log.Fields{
-		"scan_job_id":    scanID,
-		"current_status": currentStatus.String(),
-		"new_status":     newStatus.String(),
+		"scan_job_id": scanJobID,
+		"new_status":  newStatus.String(),
 	}).Debug("Updating status for scan job")
 
-	scanJob, err := rs.GetScanJob(scanID)
+	scanJob, err := rs.GetScanJob(scanJobID)
 	if err != nil {
 		return err
 	}
-	if scanJob.Status != currentStatus {
-		return fmt.Errorf("expected status %v but was %v", currentStatus, scanJob.Status)
-	}
 
 	scanJob.Status = newStatus
+	if error != nil && len(error) > 0 {
+		scanJob.Error = error[0]
+	}
+
 	return rs.SaveScanJob(scanJob)
 }
 

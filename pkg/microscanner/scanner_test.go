@@ -1,6 +1,7 @@
 package microscanner
 
 import (
+	"errors"
 	"github.com/aquasecurity/harbor-scanner-microscanner/pkg/job"
 	"github.com/aquasecurity/harbor-scanner-microscanner/pkg/mocks"
 	"github.com/aquasecurity/harbor-scanner-microscanner/pkg/model/harbor"
@@ -50,7 +51,7 @@ func TestScanner_Scan(t *testing.T) {
 		ExpectedError error
 	}{
 		{
-			Name:               "Happy path",
+			Name:               "Should update scan job as Finished",
 			ScanRequest:        scanRequest,
 			MicroScannerReport: microScannerReport,
 			HarborReport:       harborReport,
@@ -73,7 +74,7 @@ func TestScanner_Scan(t *testing.T) {
 			DataStoreExpectations: []*mocks.Expectation{
 				{
 					MethodName:      "UpdateStatus",
-					Arguments:       []interface{}{scanID, job.Queued, job.Pending},
+					Arguments:       []interface{}{scanID, job.Pending, []string(nil)},
 					ReturnArguments: []interface{}{nil},
 				},
 				{
@@ -83,7 +84,37 @@ func TestScanner_Scan(t *testing.T) {
 				},
 				{
 					MethodName:      "UpdateStatus",
-					Arguments:       []interface{}{scanID, job.Pending, job.Finished},
+					Arguments:       []interface{}{scanID, job.Finished, []string(nil)},
+					ReturnArguments: []interface{}{nil},
+				},
+			},
+			ExpectedError: nil,
+		},
+		{
+			Name:               "Should update scan job as Failed",
+			ScanRequest:        scanRequest,
+			MicroScannerReport: microScannerReport,
+			HarborReport:       harborReport,
+			ScanReports:        scanReports,
+			AuthorizerExpectation: &mocks.Expectation{
+				MethodName:      "Authorize",
+				Arguments:       []interface{}{scanRequest},
+				ReturnArguments: []interface{}{configFileName, nil},
+			},
+			WrapperExpectation: &mocks.Expectation{
+				MethodName:      "Run",
+				Arguments:       []interface{}{"core.harbor.domain:433/library/mongo@sha256:917f5b7f4bef1b35ee90f03033f33a81002511c1e0767fd44276d4bd9cd2fa8e", configFileName},
+				ReturnArguments: []interface{}{(*microscanner.ScanReport)(nil), errors.New("boom")},
+			},
+			DataStoreExpectations: []*mocks.Expectation{
+				{
+					MethodName:      "UpdateStatus",
+					Arguments:       []interface{}{scanID, job.Pending, []string(nil)},
+					ReturnArguments: []interface{}{nil},
+				},
+				{
+					MethodName:      "UpdateStatus",
+					Arguments:       []interface{}{scanID, job.Failed, []string{"wrapper script failed: boom"}},
 					ReturnArguments: []interface{}{nil},
 				},
 			},
