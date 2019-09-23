@@ -14,7 +14,7 @@ func NewTransformer() *TransformerMock {
 	return &TransformerMock{}
 }
 
-func (m *TransformerMock) Transform(sr *microscanner.ScanReport) (*harbor.VulnerabilityReport, error) {
-	args := m.Called(sr)
+func (m *TransformerMock) Transform(req harbor.ScanRequest, sr *microscanner.ScanReport) (*harbor.VulnerabilityReport, error) {
+	args := m.Called(req, sr)
 	return args.Get(0).(*harbor.VulnerabilityReport), args.Error(1)
 }
