@@ -82,7 +82,7 @@ func (s *scanner) scanE(scanID string, req harbor.ScanRequest) (err error) {
 		return fmt.Errorf("wrapper script failed: %v", err)
 	}
 
-	harborVulnerabilityReport, err := s.transformer.Transform(microScannerReport)
+	harborVulnerabilityReport, err := s.transformer.Transform(req, microScannerReport)
 	if err != nil {
 		return fmt.Errorf("report transformer failed: %v", err)
 	}

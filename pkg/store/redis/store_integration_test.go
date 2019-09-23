@@ -78,7 +78,7 @@ func TestRedisStore_ScanCRUD(t *testing.T) {
 		scanReports := job.ScanReports{
 			HarborVulnerabilityReport: &harbor.VulnerabilityReport{
 				Severity: harbor.SevHigh,
-				Vulnerabilities: []*harbor.VulnerabilityItem{
+				Vulnerabilities: []harbor.VulnerabilityItem{
 					{
 						ID: "CVE-2013-1400",
 					},

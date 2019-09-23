@@ -13,6 +13,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 )
 
 type Request struct {
@@ -238,10 +239,22 @@ func TestRequestHandler_ValidateScanRequest(t *testing.T) {
 }
 
 func TestRequestHandler_GetScanReport(t *testing.T) {
+	generatedAt, _ := time.Parse(time.RFC3339, "2019-09-23T13:51:29.466573+02:00")
+
 	scanRequestID := "job:123"
 	harborReport := &harbor.VulnerabilityReport{
+		GeneratedAt: generatedAt,
+		Artifact: harbor.Artifact{
+			Repository: "library/mongo",
+			Digest:     "sha256:72d3540a294b8718b228e71e0ca9c2c079c936decfc0703eb42f8b0d0288af07",
+		},
+		Scanner: harbor.Scanner{
+			Name:    "MicroScanner",
+			Vendor:  "Aqua Security",
+			Version: "3.0.5",
+		},
 		Severity: harbor.SevHigh,
-		Vulnerabilities: []*harbor.VulnerabilityItem{
+		Vulnerabilities: []harbor.VulnerabilityItem{
 			{
 				ID:          "CVE-2016-2781",
 				Severity:    harbor.SevHigh,
@@ -255,6 +268,16 @@ func TestRequestHandler_GetScanReport(t *testing.T) {
 		},
 	}
 	harborReportJSON := `{
+  "generated_at": "2019-09-23T13:51:29.466573+02:00",
+  "artifact": {
+    "repository": "library/mongo",
+    "digest": "sha256:72d3540a294b8718b228e71e0ca9c2c079c936decfc0703eb42f8b0d0288af07"
+  },
+  "scanner": {
+    "name": "MicroScanner",
+    "vendor": "Aqua Security",
+    "version": "3.0.5"
+  },
   "severity": 5,
   "vulnerabilities": [
     {
@@ -337,8 +360,6 @@ func TestRequestHandler_GetScanReport(t *testing.T) {
   ]
 }`
 
-	var nilScanJob *job.ScanJob
-
 	testCases := []struct {
 		Scenario             string
 		Skip                 bool
@@ -356,7 +377,7 @@ func TestRequestHandler_GetScanReport(t *testing.T) {
 				{
 					MethodName:      "GetScanJob",
 					Arguments:       []interface{}{scanRequestID},
-					ReturnArguments: []interface{}{nilScanJob, nil},
+					ReturnArguments: []interface{}{(*job.ScanJob)(nil), nil},
 				},
 			},
 			Response: Response{

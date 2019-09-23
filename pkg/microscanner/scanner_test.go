@@ -68,7 +68,7 @@ func TestScanner_Scan(t *testing.T) {
 			},
 			TransformerExpectation: &mocks.Expectation{
 				MethodName:      "Transform",
-				Arguments:       []interface{}{microScannerReport},
+				Arguments:       []interface{}{scanRequest, microScannerReport},
 				ReturnArguments: []interface{}{harborReport, nil},
 			},
 			DataStoreExpectations: []*mocks.Expectation{

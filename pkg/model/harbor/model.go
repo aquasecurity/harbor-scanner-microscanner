@@ -1,5 +1,7 @@
 package harbor
 
+import "time"
+
 // Sevxxx is the list of severity of image after scanning.
 const (
 	_ Severity = iota
@@ -34,8 +36,11 @@ type ScanResponse struct {
 }
 
 type VulnerabilityReport struct {
-	Severity        Severity             `json:"severity"`
-	Vulnerabilities []*VulnerabilityItem `json:"vulnerabilities"`
+	GeneratedAt     time.Time           `json:"generated_at"`
+	Artifact        Artifact            `json:"artifact"`
+	Scanner         Scanner             `json:"scanner"`
+	Severity        Severity            `json:"severity"`
+	Vulnerabilities []VulnerabilityItem `json:"vulnerabilities"`
 }
 
 // VulnerabilityItem is an item in the vulnerability result returned by vulnerability details API.

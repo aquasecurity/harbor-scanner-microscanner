@@ -4,13 +4,14 @@ import (
 	"github.com/aquasecurity/harbor-scanner-microscanner/pkg/model/harbor"
 	"github.com/aquasecurity/harbor-scanner-microscanner/pkg/model/microscanner"
 	log "github.com/sirupsen/logrus"
+	"time"
 )
 
 // Transformer wraps the Transform method.
 //
 // Transform transforms MicroScanner's scan report to Harbor's os package vulnerability report.
 type Transformer interface {
-	Transform(sr *microscanner.ScanReport) (*harbor.VulnerabilityReport, error)
+	Transform(req harbor.ScanRequest, sr *microscanner.ScanReport) (*harbor.VulnerabilityReport, error)
 }
 
 type transformer struct {
@@ -20,12 +21,12 @@ func NewTransformer() Transformer {
 	return &transformer{}
 }
 
-func (t *transformer) Transform(sr *microscanner.ScanReport) (*harbor.VulnerabilityReport, error) {
-	var items []*harbor.VulnerabilityItem
+func (t *transformer) Transform(req harbor.ScanRequest, sr *microscanner.ScanReport) (*harbor.VulnerabilityReport, error) {
+	var items []harbor.VulnerabilityItem
 
 	for _, resourceScan := range sr.Resources {
 		for _, vln := range resourceScan.Vulnerabilities {
-			items = append(items, &harbor.VulnerabilityItem{
+			items = append(items, harbor.VulnerabilityItem{
 				ID:          vln.Name,
 				Severity:    t.toHarborSeverity(vln.NVDSeverity),
 				Pkg:         resourceScan.Resource.Name,
@@ -37,10 +38,15 @@ func (t *transformer) Transform(sr *microscanner.ScanReport) (*harbor.Vulnerabil
 		}
 	}
 
-	severity := t.toComponentsOverview(sr)
-
 	return &harbor.VulnerabilityReport{
-		Severity:        severity,
+		GeneratedAt: time.Now(),
+		Artifact:    req.Artifact,
+		Scanner: harbor.Scanner{
+			Name:    "MicroScanner",
+			Vendor:  "Aqua Security",
+			Version: "3.0.5",
+		},
+		Severity:        t.toHighestSeverity(sr),
 		Vulnerabilities: items,
 	}, nil
 }
@@ -59,22 +65,12 @@ func (t *transformer) toHarborSeverity(severity string) harbor.Severity {
 	}
 }
 
-func (t *transformer) toComponentsOverview(sr *microscanner.ScanReport) harbor.Severity {
+func (t *transformer) toHighestSeverity(sr *microscanner.ScanReport) harbor.Severity {
 	overallSev := harbor.SevNone
-	total := 0
-	sevToCount := map[harbor.Severity]int{
-		harbor.SevHigh:    0,
-		harbor.SevMedium:  0,
-		harbor.SevLow:     0,
-		harbor.SevUnknown: 0,
-		harbor.SevNone:    0,
-	}
 
 	for _, resourceScan := range sr.Resources {
 		for _, vln := range resourceScan.Vulnerabilities {
 			sev := t.toHarborSeverity(vln.NVDSeverity)
-			sevToCount[sev]++
-			total++
 			if sev > overallSev {
 				overallSev = sev
 			}
