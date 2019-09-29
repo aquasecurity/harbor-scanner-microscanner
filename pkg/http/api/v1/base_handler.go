@@ -2,8 +2,8 @@ package v1
 
 import (
 	"encoding/json"
-	"fmt"
 	"github.com/aquasecurity/harbor-scanner-microscanner/pkg/model/harbor"
+	log "github.com/sirupsen/logrus"
 	"net/http"
 )
 
@@ -14,22 +14,22 @@ const (
 type BaseHandler struct {
 }
 
-func (h *BaseHandler) SendJSONError(w http.ResponseWriter, e harbor.Error) {
+func (h *BaseHandler) WriteJSON(res http.ResponseWriter, data interface{}, mimeType string, statusCode int) {
+	res.Header().Set(HeaderContentType, mimeType)
+	res.WriteHeader(statusCode)
+
+	err := json.NewEncoder(res).Encode(data)
+	if err != nil {
+		log.WithError(err).Error("Error while writing JSON")
+		h.SendInternalServerError(res)
+	}
+}
+
+func (h *BaseHandler) WriteJSONError(res http.ResponseWriter, e harbor.Error) {
 	data := struct {
 		Err harbor.Error `json:"error"`
 	}{e}
-	b, err := json.Marshal(data)
-	if err != nil {
-		h.SendInternalServerError(w)
-		return
-	}
-	w.Header().Set(HeaderContentType, "application/json")
-	w.WriteHeader(e.HTTPCode)
-	_, err = fmt.Fprintf(w, string(b))
-	if err != nil {
-		h.SendInternalServerError(w)
-		return
-	}
+	h.WriteJSON(res, data, "application/vnd.scanner.adapter.error", e.HTTPCode)
 }
 
 func (h *BaseHandler) SendInternalServerError(w http.ResponseWriter) {

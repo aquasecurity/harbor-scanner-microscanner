@@ -28,12 +28,12 @@ func (t *transformer) Transform(req harbor.ScanRequest, sr *microscanner.ScanRep
 		for _, vln := range resourceScan.Vulnerabilities {
 			items = append(items, harbor.VulnerabilityItem{
 				ID:          vln.Name,
-				Severity:    t.toHarborSeverity(vln.NVDSeverity),
 				Pkg:         resourceScan.Resource.Name,
 				Version:     resourceScan.Resource.Version,
+				FixVersion:  vln.FixVersion,
+				Severity:    t.toHarborSeverity(vln.NVDSeverity),
 				Description: vln.Description,
 				Links:       []string{vln.NVDURL},
-				Fixed:       vln.FixVersion,
 			})
 		}
 	}

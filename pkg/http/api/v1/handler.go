@@ -14,8 +14,10 @@ import (
 )
 
 const (
-	headerAccept       = "Accept"
-	headerRefreshAfter = "Refresh-After"
+	headerAccept = "Accept"
+
+	mimeTypeOCIImageManifest    = "application/vnd.oci.image.manifest.v1+json"
+	mimeTypeDockerImageManifest = "application/vnd.docker.distribution.manifest.v2+json"
 
 	mimeTypeMetadata                  = "application/vnd.scanner.adapter.metadata+json; version=1.0"
 	mimeTypeScanRequest               = "application/vnd.scanner.adapter.scan.request+json; version=1.0"
@@ -60,11 +62,11 @@ func (h *requestHandler) GetMetadata(res http.ResponseWriter, req *http.Request)
 			Vendor:  "Aqua Security",
 			Version: "3.0.5",
 		},
-		Capabilities: []*harbor.Capability{
+		Capabilities: []harbor.Capability{
 			{
 				ConsumesMIMETypes: []string{
-					"application/vnd.oci.image.manifest.v1+json",
-					"application/vnd.docker.distribution.manifest.v2+json",
+					mimeTypeOCIImageManifest,
+					mimeTypeDockerImageManifest,
 				},
 				ProducesMIMETypes: []string{
 					mimeTypeHarborVulnerabilityReport,
@@ -73,17 +75,11 @@ func (h *requestHandler) GetMetadata(res http.ResponseWriter, req *http.Request)
 			},
 		},
 		Properties: map[string]string{
-			"harbor.scanner-adapter/scanner-type":                      "os-package-vulnerability",
-			"harbor.scanner-adapter/vulnerability-database-updated-at": "",
+			"harbor.scanner-adapter/scanner-type": "os-package-vulnerability",
 		},
 	}
 
-	res.Header().Set(HeaderContentType, mimeTypeMetadata)
-	err := json.NewEncoder(res).Encode(md)
-	if err != nil {
-		log.Errorf("Error while marshalling metadata response: %v", err)
-		h.SendInternalServerError(res)
-	}
+	h.WriteJSON(res, md, mimeTypeMetadata, http.StatusOK)
 }
 
 func (h *requestHandler) AcceptScanRequest(res http.ResponseWriter, req *http.Request) {
@@ -92,7 +88,7 @@ func (h *requestHandler) AcceptScanRequest(res http.ResponseWriter, req *http.Re
 	err := json.NewDecoder(req.Body).Decode(&scanRequest)
 	if err != nil {
 		log.WithError(err).Error("Error while unmarshalling scan request")
-		h.SendJSONError(res, harbor.Error{
+		h.WriteJSONError(res, harbor.Error{
 			HTTPCode: http.StatusBadRequest,
 			Message:  fmt.Sprintf("unmarshalling scan request: %s", err.Error()),
 		})
@@ -101,14 +97,14 @@ func (h *requestHandler) AcceptScanRequest(res http.ResponseWriter, req *http.Re
 
 	if validationError := h.ValidateScanRequest(scanRequest); validationError != nil {
 		log.Errorf("Error while validating scan request: %s", validationError.Message)
-		h.SendJSONError(res, *validationError)
+		h.WriteJSONError(res, *validationError)
 		return
 	}
 
 	scanJob, err := h.jobQueue.EnqueueScanJob(scanRequest)
 	if err != nil {
 		log.WithError(err).Error("Error while enqueuing scan job")
-		h.SendJSONError(res, harbor.Error{
+		h.WriteJSONError(res, harbor.Error{
 			HTTPCode: http.StatusInternalServerError,
 			Message:  fmt.Sprintf("enqueuing scan job: %s", err.Error()),
 		})
@@ -116,18 +112,7 @@ func (h *requestHandler) AcceptScanRequest(res http.ResponseWriter, req *http.Re
 	}
 	log.WithField(fieldScanJobID, scanJob.ID).Debug("Scan job enqueued successfully")
 
-	res.Header().Set(HeaderContentType, mimeTypeScanResponse)
-	res.WriteHeader(http.StatusAccepted)
-
-	err = json.NewEncoder(res).Encode(harbor.ScanResponse{ID: scanJob.ID})
-	if err != nil {
-		log.Errorf("Error while marshalling scan response: %v", err)
-		h.SendJSONError(res, harbor.Error{
-			HTTPCode: http.StatusInternalServerError,
-			Message:  fmt.Sprintf("marshaling scan response: %s", err.Error()),
-		})
-		return
-	}
+	h.WriteJSON(res, harbor.ScanResponse{ID: scanJob.ID}, mimeTypeScanResponse, http.StatusAccepted)
 }
 
 func (h *requestHandler) ValidateScanRequest(req harbor.ScanRequest) *harbor.Error {
@@ -169,7 +154,7 @@ func (h *requestHandler) GetScanReport(res http.ResponseWriter, req *http.Reques
 	scanJobID, ok := vars[pathVarScanRequestID]
 	if !ok {
 		log.Error("Error while parsing `scan_request_id` path variable")
-		h.SendJSONError(res, harbor.Error{
+		h.WriteJSONError(res, harbor.Error{
 			HTTPCode: http.StatusBadRequest,
 			Message:  "missing scan_request_id",
 		})
@@ -179,9 +164,18 @@ func (h *requestHandler) GetScanReport(res http.ResponseWriter, req *http.Reques
 	reqLog := log.WithField("scan_job_id", scanJobID)
 
 	scanJob, err := h.dataStore.GetScanJob(scanJobID)
+	if err != nil {
+		reqLog.Error("Error while getting scan job")
+		h.WriteJSONError(res, harbor.Error{
+			HTTPCode: http.StatusInternalServerError,
+			Message:  fmt.Sprintf("getting scan job: %v", err),
+		})
+		return
+	}
+
 	if scanJob == nil {
 		reqLog.Error("Cannot find scan job")
-		h.SendJSONError(res, harbor.Error{
+		h.WriteJSONError(res, harbor.Error{
 			HTTPCode: http.StatusNotFound,
 			Message:  fmt.Sprintf("cannot find scan job: %v", scanJobID),
 		})
@@ -190,14 +184,14 @@ func (h *requestHandler) GetScanReport(res http.ResponseWriter, req *http.Reques
 
 	if scanJob.Status == job.Queued || scanJob.Status == job.Pending {
 		reqLog.WithField("scan_job_status", scanJob.Status).Debug("Scan job has not finished yet")
-		res.Header().Set(headerRefreshAfter, "15")
+		res.Header().Add("Location", req.URL.String())
 		res.WriteHeader(http.StatusFound)
 		return
 	}
 
 	if scanJob.Status == job.Failed {
 		reqLog.WithField(log.ErrorKey, scanJob.Error).Error("Scan job failed")
-		h.SendJSONError(res, harbor.Error{
+		h.WriteJSONError(res, harbor.Error{
 			HTTPCode: http.StatusInternalServerError,
 			Message:  scanJob.Error,
 		})
@@ -206,43 +200,29 @@ func (h *requestHandler) GetScanReport(res http.ResponseWriter, req *http.Reques
 
 	if scanJob.Status != job.Finished {
 		reqLog.WithField("scan_job_status", scanJob.Status).Error("Unexpected scan job status")
-		h.SendJSONError(res, harbor.Error{
+		h.WriteJSONError(res, harbor.Error{
 			HTTPCode: http.StatusInternalServerError,
 			Message:  fmt.Sprintf("unexpected status %v of scan job %v", scanJob.Status, scanJob.ID),
 		})
 		return
 	}
 
-	switch reportMIMEType := h.GetReportMIMEType(req); reportMIMEType {
+	switch mimeType := h.GetAcceptableMimeType(req); mimeType {
 	case mimeTypeHarborVulnerabilityReport, "":
-		res.Header().Set(HeaderContentType, reportMIMEType)
-		err = json.NewEncoder(res).Encode(scanJob.Reports.HarborVulnerabilityReport)
-		if err != nil {
-			reqLog.WithError(err).Error("Error while marshalling Harbor vulnerability report")
-			h.SendJSONError(res, harbor.Error{
-				HTTPCode: http.StatusInternalServerError,
-				Message:  fmt.Sprintf("marshalling Harbor vulnerability report: %v", err),
-			})
-		}
+		h.WriteJSON(res, scanJob.Reports.HarborVulnerabilityReport, mimeTypeHarborVulnerabilityReport, http.StatusOK)
+		return
 	case mimeTypeMicroScannerReport:
-		res.Header().Set(HeaderContentType, reportMIMEType)
-		err = json.NewEncoder(res).Encode(scanJob.Reports.MicroScannerReport)
-		if err != nil {
-			reqLog.WithError(err).Error("Error while marshalling MicroScanner report")
-			h.SendJSONError(res, harbor.Error{
-				HTTPCode: http.StatusInternalServerError,
-				Message:  fmt.Sprintf("marshalling MicroScanner report: %v", err),
-			})
-		}
+		h.WriteJSON(res, scanJob.Reports.MicroScannerReport, mimeTypeMicroScannerReport, http.StatusOK)
+		return
 	default:
-		reqLog.Errorf("Unrecognized report MIME type: %v", reportMIMEType)
-		h.SendJSONError(res, harbor.Error{
+		reqLog.Errorf("Unrecognized report MIME type: %v", mimeType)
+		h.WriteJSONError(res, harbor.Error{
 			HTTPCode: http.StatusUnprocessableEntity,
-			Message:  fmt.Sprintf("unrecognized report MIME type: %v", reportMIMEType),
+			Message:  fmt.Sprintf("unrecognized report MIME type: %v", mimeType),
 		})
 	}
 }
 
-func (h *requestHandler) GetReportMIMEType(req *http.Request) string {
+func (h *requestHandler) GetAcceptableMimeType(req *http.Request) string {
 	return strings.TrimSpace(req.Header.Get(headerAccept))
 }
