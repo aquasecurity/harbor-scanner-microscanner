@@ -34,6 +34,7 @@ See [Pluggable Image Vulnerability Scanning Proposal][image-vulnerability-scanni
      "artifact": {
        "repository": "library/mongo",
        "digest": "sha256:917f5b7f4bef1b35ee90f03033f33a81002511c1e0767fd44276d4bd9cd2fa8e"
+       "mime_type": "application/vnd.docker.distribution.manifest.v2+json"
      }
    }
    EOF
@@ -96,7 +97,7 @@ make compose-down
 4. Create the `harbor-scanner-microscanner` config map with Harbor registry certificate:
    ```
    kubectl create configmap harbor-scanner-microscanner \
-     --from-file="harbor-registry-cert=${HARBOR_REGISTRY_CERT}"
+     --from-file="harbor-registry-cert=${PATH_TO_HARBOR_REGISTRY_CERTIFICATE}"
    ```
 5. Create `harbor-scanner-microscanner` deployment and service:
    ```

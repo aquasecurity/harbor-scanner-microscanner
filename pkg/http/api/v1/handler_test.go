@@ -278,11 +278,11 @@ func TestRequestHandler_GetScanReport(t *testing.T) {
     "vendor": "Aqua Security",
     "version": "3.0.5"
   },
-  "severity": 5,
+  "severity": "High",
   "vulnerabilities": [
     {
       "id": "CVE-2016-2781",
-      "severity": 5,
+      "severity": "High",
       "package": "coreutils",
       "version": "8.25-2ubuntu3~16.04",
       "description": "(...)",

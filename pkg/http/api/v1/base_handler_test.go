@@ -8,13 +8,13 @@ import (
 	"testing"
 )
 
-func TestBaseHandler_SendJSONError(t *testing.T) {
+func TestBaseHandler_WriteJSONError(t *testing.T) {
 	// given
 	recorder := httptest.NewRecorder()
 	handler := &BaseHandler{}
 
 	// when
-	handler.SendJSONError(recorder, harbor.Error{
+	handler.WriteJSONError(recorder, harbor.Error{
 		HTTPCode: http.StatusBadRequest,
 		Message:  "Invalid request",
 	})
