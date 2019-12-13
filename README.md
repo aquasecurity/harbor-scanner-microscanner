@@ -4,10 +4,16 @@
 [![Go Report Card][report-card-img]][report-card]
 [![License][license-img]][license]
 
-# harbor-scanner-microscanner
+# :fire: DEPRECATED ~harbor-scanner-microscanner~ :fire:
 
-This project is a POC of an out-of-tree implementation of the Harbor Scanner Adapter API for [MicroScanner][microscanner-url].
-See [Pluggable Image Vulnerability Scanning Proposal][image-vulnerability-scanning-proposal] for more details.
+This project is no longer supported by Aqua and **is going to be archived** by the end of **February 2020**.
+
+As explained by [Liz Rice](https://github.com/lizrice) in her blog post [Trivy Vulnerability Scanner Joins the Aqua Family][trivy-blog],
+the plan is to eventually retire [MicroScanner][microscanner-url] in favour of [Trivy][trivy]. However, there are
+a couple of enhancements that need to be applied to Trivy first, to maintain the experience for our existing
+MicroScanner users.
+
+Please consider using Harbor scanner adapters for [Trivy][trivy-adapter] or [Aqua CSP Scanner][aqua-adapter] instead.
 
 ## TOC
 
@@ -163,8 +169,6 @@ config file or as the `--insecure-registry` flag.
 3. https://itnext.io/storing-go-structs-in-redis-using-rejson-dab7f8fc0053
 
 [microscanner-url]: https://github.com/aquasecurity/microscanner
-[image-vulnerability-scanning-proposal]: https://github.com/goharbor/community/pull/98
-
 [release-img]: https://img.shields.io/github/release/aquasecurity/harbor-scanner-microscanner.svg
 [release]: https://github.com/aquasecurity/harbor-scanner-microscanner/releases
 [ci-img]: https://travis-ci.org/aquasecurity/harbor-scanner-microscanner.svg?branch=master
@@ -175,3 +179,7 @@ config file or as the `--insecure-registry` flag.
 [report-card]: https://goreportcard.com/report/github.com/aquasecurity/harbor-scanner-microscanner
 [license-img]: https://img.shields.io/github/license/aquasecurity/harbor-scanner-microscanner.svg
 [license]: https://github.com/aquasecurity/harbor-scanner-microscanner/blob/master/LICENSE
+[trivy]: https://github.com/aquasecurity/trivy
+[trivy-adapter]: https://github.com/aquasecurity/harbor-scanner-trivy
+[aqua-adapter]: https://github.com/aquasecurity/harbor-scanner-aqua
+[trivy-blog]: https://blog.aquasec.com/trivy-vulnerability-scanner-joins-aqua-family
